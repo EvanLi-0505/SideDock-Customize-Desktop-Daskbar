@@ -1,0 +1,30 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "SideDock",
+  "mainBinaryName": "SideDock",
+  "identifier": "io.github.sidedock",
+  "version": "../package.json",
+  "build": {
+    "beforeDevCommand": "npm run dev:ui",
+    "beforeBuildCommand": "npm run build:ui",
+    "devUrl": "http://localhost:3580",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob: http://sdicon.localhost sdicon:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'",
+      "devCsp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "publisher": "SideDock",
+    "category": "Utility",
+    "copyright": "AGPL-3.0-or-later",
+    "shortDescription": "SideDock",
+    "longDescription": "A portable side dock for Windows that coexists with the native taskbar",
+    "icon": ["static/icons/32x32.png", "static/icons/128x128.png", "static/icons/icon.ico"]
+  }
+}

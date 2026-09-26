@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+target/
+release/
+src/gen/
+
+# portable runtime data created next to the executable during development
+data/
+
+# local reference material (screenshots of the original Seelen UI)
+Screenshot/
+
+# editors / os
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# env / tooling
+.env
+.env.*
+rustc-ice-*.txt
+*.log
+
+# ai assistants
+.claude/
+CLAUDE.md

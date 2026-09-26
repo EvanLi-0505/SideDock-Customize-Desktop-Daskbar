@@ -1,0 +1,572 @@
+/*
+ * Dock styles. Structure ported from Seelen UI `weg/styles/global.css`,
+ * look ported from its default theme `weg.scss`, re-tokenized for SideDock themes.
+ */
+
+:root {
+  --weg-max-taskbar-width: calc(100vw - var(--config-margin) * 2);
+  --weg-max-taskbar-height: calc(100vh - var(--config-margin) * 2);
+  --dock-size: calc(var(--config-item-size) + (var(--config-padding) + var(--config-margin)) * 2);
+
+  --item-inner-spacing: calc(var(--config-item-size) * 0.15);
+  --item-border-radius: calc(var(--config-item-size) * 0.25);
+  --item-size-medium: calc(var(--config-item-size) * 2 + var(--config-space-between-items));
+  --item-size-large: calc(var(--config-item-size) * 3 + var(--config-space-between-items) * 2);
+}
+
+html,
+body {
+  background: transparent !important;
+}
+
+body {
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+
+  &:has(.taskbar.left) {
+    justify-content: flex-start;
+  }
+  &:has(.taskbar.right) {
+    justify-content: flex-end;
+  }
+  &:has(.taskbar.top) {
+    align-items: flex-start;
+  }
+  &:has(.taskbar.bottom) {
+    align-items: flex-end;
+  }
+}
+
+#root {
+  position: relative;
+  height: min-content;
+  width: min-content;
+  max-width: 100vw;
+  max-height: 100vh;
+  padding: var(--config-margin);
+  transition:
+    transform 0.22s var(--ease),
+    opacity 0.22s var(--ease);
+
+  &:has(.taskbar.hidden) {
+    opacity: 0;
+  }
+  &:has(.taskbar.hidden.left) {
+    transform: translate(calc(var(--dock-size) * -1), 0);
+  }
+  &:has(.taskbar.hidden.right) {
+    transform: translate(var(--dock-size), 0);
+  }
+  &:has(.taskbar.hidden.top) {
+    transform: translate(0, calc(var(--dock-size) * -1));
+  }
+  &:has(.taskbar.hidden.bottom) {
+    transform: translate(0, var(--dock-size));
+  }
+}
+
+/* ============ taskbar ============ */
+
+.taskbar {
+  position: relative;
+  width: min-content;
+  height: min-content;
+  color: var(--fg);
+
+  .taskbar-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--dock-bg);
+    border: 1px solid var(--dock-border);
+    box-shadow: var(--dock-highlight, 0 0 0 transparent), var(--shadow-m);
+    pointer-events: none;
+  }
+
+  &[data-has-margin="true"],
+  &[data-size="min-content"] {
+    border-radius: 16px;
+    .taskbar-bg,
+    .weg-items-container {
+      border-radius: 16px;
+    }
+  }
+
+  .weg-items-container {
+    position: relative;
+    overflow: auto;
+    scrollbar-width: none;
+    max-width: var(--weg-max-taskbar-width);
+    max-height: var(--weg-max-taskbar-height);
+    height: 100%;
+    padding: var(--config-padding);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    .weg-items {
+      display: flex;
+      align-items: center;
+      min-width: 100%;
+      width: max-content;
+    }
+
+    .weg-items-left,
+    .weg-items-center,
+    .weg-items-right {
+      flex: 1 0 0px;
+      display: flex;
+      align-items: center;
+      gap: var(--config-space-between-items);
+    }
+  }
+
+  &.horizontal {
+    &[data-size="full-width"] {
+      width: var(--weg-max-taskbar-width);
+      .weg-items-left {
+        justify-content: flex-start;
+      }
+      .weg-items-right {
+        justify-content: flex-end;
+      }
+      .weg-items-center {
+        justify-content: center;
+      }
+    }
+    .weg-items {
+      flex-direction: row;
+      height: var(--config-item-size);
+    }
+    .weg-items-left,
+    .weg-items-center,
+    .weg-items-right {
+      flex-direction: row;
+    }
+  }
+
+  &.vertical {
+    &[data-size="full-width"] {
+      height: var(--weg-max-taskbar-height);
+      .weg-items-left {
+        justify-content: flex-start;
+      }
+      .weg-items-right {
+        justify-content: flex-end;
+      }
+      .weg-items-center {
+        justify-content: center;
+      }
+    }
+    .weg-items-container .weg-items {
+      flex-direction: column;
+      min-height: 100%;
+      height: max-content;
+      width: var(--config-item-size);
+      min-width: 0;
+    }
+    .weg-items-left,
+    .weg-items-center,
+    .weg-items-right {
+      flex-direction: column;
+    }
+  }
+}
+
+/* in "fit content" mode the groups collapse around their items */
+.taskbar[data-size="min-content"] .weg-items-container {
+  .weg-items-left,
+  .weg-items-center,
+  .weg-items-right {
+    flex: 0 0 auto;
+  }
+  .weg-items {
+    gap: var(--config-space-between-items);
+  }
+  .weg-items-left:empty,
+  .weg-items-right:empty {
+    display: none;
+  }
+}
+
+.weg-empty-state-label {
+  white-space: nowrap;
+  line-height: var(--config-item-size);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin: 0 calc(var(--config-padding) * 2);
+
+  .vertical & {
+    writing-mode: vertical-rl;
+    margin: calc(var(--config-padding) * 2) 0;
+  }
+}
+
+/* ============ drag ============ */
+
+.weg-item-drag-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  touch-action: none;
+
+  &.dragging {
+    opacity: 0.55;
+    z-index: 2;
+  }
+}
+
+body.dragging * {
+  cursor: grabbing !important;
+}
+
+.weg-split-items {
+  display: flex;
+  gap: var(--config-space-between-items);
+  .vertical & {
+    flex-direction: column;
+  }
+}
+
+/* ============ separator ============ */
+
+.weg-separator {
+  position: relative;
+  opacity: 0;
+
+  &.visible {
+    opacity: 1;
+  }
+
+  .vertical & {
+    width: var(--config-item-size);
+    border-top: 1px solid color-mix(in srgb, var(--fg-muted) 55%, transparent);
+    height: 0;
+  }
+  .horizontal & {
+    height: var(--config-item-size);
+    border-left: 1px solid color-mix(in srgb, var(--fg-muted) 55%, transparent);
+    width: 0;
+  }
+  /* larger hit area for the context menu */
+  &.visible::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--config-space-between-items) / -2);
+  }
+}
+
+/* ============ items ============ */
+
+.weg-item-overlay {
+  position: relative;
+
+  .weg-item-custom-badge,
+  .weg-item-instance-counter-badge {
+    position: absolute;
+    right: 0;
+    translate: 25% -25%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    pointer-events: none;
+    animation: badge-in 200ms var(--ease);
+  }
+
+  .weg-item-custom-badge {
+    top: 0;
+    background: var(--accent);
+  }
+
+  .weg-item-instance-counter-badge {
+    bottom: 0;
+    translate: 25% 25%;
+    background: color-mix(in srgb, var(--fg-muted) 90%, black);
+  }
+
+  .weg-item-open-sign {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--dock-indicator);
+    opacity: 0;
+    transition-property: width, height, opacity, background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: var(--ease);
+
+    .top & {
+      left: 50%;
+      top: calc(var(--config-padding) / 2 * -1);
+      transform: translate(-50%, -50%);
+    }
+    .bottom & {
+      left: 50%;
+      bottom: calc(var(--config-padding) / 2 * -1);
+      transform: translate(-50%, 50%);
+    }
+    .left & {
+      top: 50%;
+      left: calc(var(--config-padding) / 2 * -1);
+      transform: translate(-50%, -50%);
+    }
+    .right & {
+      top: 50%;
+      right: calc(var(--config-padding) / 2 * -1);
+      transform: translate(50%, -50%);
+    }
+
+    &.weg-item-open-sign-active {
+      opacity: 1;
+    }
+    &.weg-item-open-sign-focused {
+      background: var(--accent);
+      .vertical & {
+        height: 50%;
+      }
+      .horizontal & {
+        width: 50%;
+      }
+    }
+  }
+}
+
+@keyframes badge-in {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+
+.weg-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  gap: var(--item-inner-spacing);
+  padding: var(--item-inner-spacing);
+  height: var(--config-item-size);
+  width: var(--config-item-size);
+  background: var(--dock-item-bg);
+  border-radius: var(--item-border-radius);
+  box-shadow: var(--shadow-s);
+  transition:
+    width 200ms var(--ease),
+    height 200ms var(--ease),
+    background-color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+  animation: item-in 220ms var(--ease);
+
+  &:hover {
+    background: var(--dock-item-hover);
+    .weg-item-icon {
+      filter: brightness(1.05) saturate(1.1);
+    }
+  }
+  &:active {
+    transform: scale(0.94);
+  }
+
+  &.weg-item-medium {
+    .horizontal & {
+      width: var(--item-size-medium);
+    }
+    .vertical & {
+      height: var(--item-size-medium);
+    }
+  }
+  &.weg-item-large {
+    .horizontal & {
+      width: var(--item-size-large);
+    }
+    .vertical & {
+      height: var(--item-size-large);
+    }
+  }
+
+  .weg-item-icon {
+    height: 100%;
+    width: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  &.has-title {
+    .horizontal & {
+      width: fit-content;
+      min-width: var(--config-item-size);
+      max-width: var(--item-size-large);
+      justify-content: flex-start;
+    }
+  }
+
+  .weg-item-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    font-size: max(calc(var(--config-item-size) / 3.2), 12px);
+    font-weight: 600;
+  }
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    scale: 0.5;
+  }
+}
+
+/* ============ modules ============ */
+
+.weg-module {
+  color: var(--fg);
+
+  .weg-module-icon {
+    width: 58%;
+    height: 58%;
+  }
+
+  &.active .weg-module-icon {
+    color: var(--accent);
+  }
+
+  &.low .weg-module-icon {
+    color: var(--danger);
+  }
+
+  .weg-module-start {
+    width: 60%;
+    height: 60%;
+    fill: var(--accent);
+  }
+
+  .weg-module-bin {
+    width: 62%;
+    height: 62%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+
+    .bin-paper {
+      fill: var(--accent);
+      stroke: none;
+      opacity: 0.85;
+    }
+  }
+}
+
+.weg-module-text {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  text-align: center;
+
+  .clock-inline {
+    font-size: calc(var(--config-item-size) * 0.3);
+  }
+  .clock-stack {
+    display: flex;
+    flex-direction: column;
+    font-size: calc(var(--config-item-size) * 0.32);
+  }
+  .keyboard-label {
+    font-size: calc(var(--config-item-size) * 0.34);
+  }
+}
+
+/* media module (ported from Seelen UI MediaSession) */
+.weg-item.media-session-container {
+  position: relative;
+  padding: 0;
+
+  &:active {
+    transform: none;
+  }
+
+  .media-session-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(12px) brightness(0.9) saturate(1.3);
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+
+  .media-session {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+
+    .vertical & {
+      flex-direction: column;
+    }
+  }
+
+  .media-session-thumb {
+    flex-shrink: 0;
+    width: var(--config-item-size);
+    height: var(--config-item-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg-muted);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .media-session-actions {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+
+    .vertical & {
+      flex-direction: column;
+    }
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      color: var(--fg);
+      background: color-mix(in srgb, var(--surface) 55%, transparent);
+      transition: background-color var(--dur-fast) ease;
+
+      &:hover:not(:disabled) {
+        background: var(--surface-hover);
+      }
+      &:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+    }
+  }
+}

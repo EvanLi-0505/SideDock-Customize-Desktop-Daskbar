@@ -1,0 +1,2 @@
+# frontend changes are hot-reloaded by Vite; do not rebuild/restart the backend for them
+ui/

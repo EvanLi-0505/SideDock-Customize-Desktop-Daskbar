@@ -1,0 +1,155 @@
+/*
+ * Design tokens shared by every SideDock webview.
+ *
+ * data-theme  = "glass" | "clear" | "solid"
+ *               glass = frosted glass, clear = clear glass (both over a native backdrop,
+ *               both also carry the `data-glass` attribute)
+ * data-scheme = "light" | "dark"
+ * --accent is set at runtime from the settings or the Windows accent color.
+ */
+
+:root {
+  --accent: #3b82f6;
+  --accent-contrast: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-strong: color-mix(in srgb, var(--accent) 85%, black);
+  --danger: #e5484d;
+  --danger-soft: color-mix(in srgb, var(--danger) 15%, transparent);
+  --success: #30a46c;
+
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --radius-xl: 20px;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  color-scheme: light;
+  font-family: var(--font);
+}
+
+/* ---------- light ---------- */
+:root[data-scheme="light"] {
+  color-scheme: light;
+  --fg: #16181d;
+  --fg-secondary: #4a4f59;
+  --fg-muted: #7b808a;
+  --fg-disabled: #a9adb4;
+
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --surface-hover: #eef0f4;
+  --surface-pressed: #e4e7ec;
+  --border: #e2e5ea;
+  --border-strong: #cfd4dc;
+
+  --shadow-s: 0 1px 2px rgb(16 24 40 / 0.08), 0 1px 1px rgb(16 24 40 / 0.04);
+  --shadow-m: 0 6px 16px rgb(16 24 40 / 0.1), 0 2px 4px rgb(16 24 40 / 0.06);
+  --shadow-l: 0 16px 40px rgb(16 24 40 / 0.16), 0 4px 10px rgb(16 24 40 / 0.08);
+
+  /* dock */
+  --dock-bg: rgb(245 246 249 / 0.92);
+  --dock-border: rgb(255 255 255 / 0.9);
+  --dock-item-bg: #ffffff;
+  --dock-item-hover: #f0f2f6;
+  --dock-indicator: #6b7280;
+}
+
+/* ---------- dark ---------- */
+:root[data-scheme="dark"] {
+  color-scheme: dark;
+  --fg: #eceef2;
+  --fg-secondary: #b9bec8;
+  --fg-muted: #878d98;
+  --fg-disabled: #5c626c;
+
+  --bg: #16181c;
+  --surface: #1f2227;
+  --surface-2: #25282e;
+  --surface-hover: #2c3037;
+  --surface-pressed: #343941;
+  --border: #30343b;
+  --border-strong: #3d424a;
+
+  --shadow-s: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-m: 0 6px 16px rgb(0 0 0 / 0.45), 0 2px 4px rgb(0 0 0 / 0.3);
+  --shadow-l: 0 18px 44px rgb(0 0 0 / 0.55), 0 4px 10px rgb(0 0 0 / 0.35);
+
+  --dock-bg: rgb(28 30 35 / 0.92);
+  --dock-border: rgb(255 255 255 / 0.08);
+  --dock-item-bg: #2a2e35;
+  --dock-item-hover: #343943;
+  --dock-indicator: #9aa1ad;
+}
+
+/* ---------- glass: translucent surfaces ---------- */
+:root[data-theme="glass"][data-scheme="light"] {
+  --bg: transparent;
+  --surface: rgb(255 255 255 / 0.62);
+  --surface-2: rgb(255 255 255 / 0.45);
+  --surface-hover: rgb(255 255 255 / 0.75);
+  --surface-pressed: rgb(255 255 255 / 0.9);
+  --border: rgb(255 255 255 / 0.7);
+  --border-strong: rgb(0 0 0 / 0.1);
+
+  /* no native blur behind the dock: keep it frosted enough to stay readable */
+  --dock-bg: linear-gradient(160deg, rgb(250 251 255 / 0.8), rgb(232 237 247 / 0.72));
+  --dock-border: rgb(255 255 255 / 0.85);
+  --dock-item-bg: rgb(255 255 255 / 0.94);
+  --dock-item-hover: #ffffff;
+}
+
+:root[data-theme="glass"][data-scheme="dark"] {
+  --bg: transparent;
+  --surface: rgb(40 43 50 / 0.55);
+  --surface-2: rgb(40 43 50 / 0.38);
+  --surface-hover: rgb(64 68 78 / 0.6);
+  --surface-pressed: rgb(80 85 96 / 0.7);
+  --border: rgb(255 255 255 / 0.1);
+  --border-strong: rgb(255 255 255 / 0.16);
+
+  --dock-bg: linear-gradient(160deg, rgb(52 56 66 / 0.8), rgb(24 26 31 / 0.74));
+  --dock-border: rgb(255 255 255 / 0.14);
+  --dock-item-bg: rgb(255 255 255 / 0.12);
+  --dock-item-hover: rgb(255 255 255 / 0.2);
+}
+
+/* ---------- clear glass: brighter and far more see-through ---------- */
+:root[data-theme="clear"][data-scheme="light"] {
+  --bg: transparent;
+  --surface: rgb(255 255 255 / 0.32);
+  --surface-2: rgb(255 255 255 / 0.22);
+  --surface-hover: rgb(255 255 255 / 0.5);
+  --surface-pressed: rgb(255 255 255 / 0.65);
+  --border: rgb(255 255 255 / 0.6);
+  --border-strong: rgb(0 0 0 / 0.1);
+
+  --dock-bg: linear-gradient(160deg, rgb(255 255 255 / 0.38), rgb(255 255 255 / 0.16));
+  --dock-border: rgb(255 255 255 / 0.7);
+  --dock-item-bg: rgb(255 255 255 / 0.62);
+  --dock-item-hover: rgb(255 255 255 / 0.8);
+  --dock-highlight: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(255 255 255 / 0.25);
+}
+
+:root[data-theme="clear"][data-scheme="dark"] {
+  --bg: transparent;
+  --surface: rgb(30 33 40 / 0.3);
+  --surface-2: rgb(30 33 40 / 0.2);
+  --surface-hover: rgb(255 255 255 / 0.12);
+  --surface-pressed: rgb(255 255 255 / 0.18);
+  --border: rgb(255 255 255 / 0.14);
+  --border-strong: rgb(255 255 255 / 0.2);
+
+  --dock-bg: linear-gradient(160deg, rgb(60 64 74 / 0.4), rgb(20 22 27 / 0.28));
+  --dock-border: rgb(255 255 255 / 0.2);
+  --dock-item-bg: rgb(255 255 255 / 0.1);
+  --dock-item-hover: rgb(255 255 255 / 0.2);
+  --dock-highlight: inset 0 1px 0 rgb(255 255 255 / 0.22);
+}

@@ -1,0 +1,33 @@
+{
+  "name": "sidedock",
+  "version": "1.0.0",
+  "description": "A portable side dock for Windows that coexists with the native taskbar. Based on Seelen UI's dock.",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:ui": "vite",
+    "build:ui": "vite build",
+    "build": "tauri build --no-bundle && node scripts/package.mjs",
+    "check": "svelte-check --tsconfig ./tsconfig.json && cargo check",
+    "check:ui": "svelte-check --tsconfig ./tsconfig.json",
+    "lint:rs": "cargo clippy -- -D warnings",
+    "fmt:rs": "cargo fmt",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.48.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tauri-apps/cli": "^2.11.5",
+    "@tsconfig/svelte": "^5.0.8",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.1"
+  }
+}

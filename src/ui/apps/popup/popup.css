@@ -1,0 +1,58 @@
+html,
+body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+/* the shell is measured to size the native window */
+.popup-shell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  height: max-content;
+}
+
+.popup-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  color: var(--fg);
+}
+
+/* glass lets the native acrylic show through; match the 8px DWM window corners */
+:root[data-glass] .popup-surface {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-radius: 8px;
+}
+
+:root[data-theme="clear"] .popup-surface {
+  background: var(--surface);
+}
+
+.popup-header {
+  padding: 8px 10px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.popup-link {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-m);
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg-secondary);
+  transition: background-color var(--dur-fast) ease;
+
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--fg);
+  }
+}

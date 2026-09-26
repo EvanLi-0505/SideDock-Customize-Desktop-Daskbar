@@ -1,0 +1,32 @@
+html,
+body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: 360px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--fg);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-glass][data-scheme="light"] .tooltip {
+  background: rgb(250 251 253);
+}
+
+:root[data-glass][data-scheme="dark"] .tooltip {
+  background: rgb(38 41 48);
+}

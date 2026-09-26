@@ -1,0 +1,13 @@
+[workspace]
+members = ["src"]
+resolver = "3"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "unwind"

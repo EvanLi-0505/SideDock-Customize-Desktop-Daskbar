@@ -1,0 +1,66 @@
+[package]
+name = "sidedock"
+version = "1.0.0"
+description = "A portable side dock for Windows that coexists with the native taskbar"
+authors = ["SideDock contributors"]
+license = "AGPL-3.0-or-later"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[[bin]]
+name = "SideDock"
+path = "background/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+parking_lot = "0.12"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+winreg = "0.55"
+regex = "1"
+png = "0.18"
+base64 = "0.22"
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+windows-core = "0.62"
+windows-future = "0.3"
+
+[dependencies.windows]
+version = "0.62"
+features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Storage_EnhancedStorage",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Power",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Shutdown",
+  "Win32_System_Threading",
+  "Win32_System_Variant",
+  "Win32_UI_Accessibility",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_UI_TextServices",
+  "Win32_UI_WindowsAndMessaging",
+  "Devices_Radios",
+  "Foundation",
+  "Foundation_Collections",
+  "Media_Control",
+  "Storage_Streams",
+]
