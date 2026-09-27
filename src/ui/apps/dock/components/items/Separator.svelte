@@ -2,7 +2,7 @@
 <script lang="ts">
   import type { SeparatorDockItem } from "@shared/types.ts";
   import { isHardcodedSeparator } from "../../state/items.svelte.ts";
-  import { showItemMenu } from "../../menus.ts";
+  import { showItemMenu } from "../../menus.svelte.ts";
 
   let { item }: { item: SeparatorDockItem } = $props();
   const hardcoded = $derived(isHardcodedSeparator(item));

@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{collections::BTreeMap, sync::LazyLock};
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -83,6 +83,17 @@ pub enum DockMonitors {
     All,
 }
 
+/// What the dock does when its items do not fit.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OverflowMode {
+    /// shrink the icons, then overlap them like a stack of cards
+    ShrinkThenStack,
+    /// only shrink the icons
+    ShrinkOnly,
+    /// shrink, then move the apps that still do not fit into a "more" popup
+    Collapse,
+}
+
 // ============== structs ==============
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -109,6 +120,15 @@ pub struct DockSettings {
     pub middle_click_action: MiddleClickAction,
     /// Hide the dock while a fullscreen window (game, video) is focused on its monitor.
     pub hide_on_fullscreen: bool,
+    /// macOS-like wave magnification under the cursor
+    pub magnification: bool,
+    /// scale of the icon right under the cursor (1.0 = no zoom)
+    pub magnification_scale: f32,
+    /// how many neighbours on each side are magnified too
+    pub magnification_range: u32,
+    /// show the app name next to the magnified icon
+    pub show_labels: bool,
+    pub overflow_mode: OverflowMode,
 }
 
 impl Default for DockSettings {
@@ -133,6 +153,11 @@ impl Default for DockSettings {
             show_end_task: false,
             middle_click_action: MiddleClickAction::OpenNewInstance,
             hide_on_fullscreen: true,
+            magnification: true,
+            magnification_scale: 1.8,
+            magnification_range: 3,
+            show_labels: true,
+            overflow_mode: OverflowMode::ShrinkThenStack,
         }
     }
 }
@@ -143,8 +168,24 @@ impl DockSettings {
         self.size + self.padding * 2 + self.margin * 2
     }
 
+    /// Extra room (logical px) the dock window needs on its inner side so magnified icons
+    /// are not clipped. This area is transparent and click-through. It is kept as small as
+    /// possible: a transparent WebView costs GPU/CPU per frame in proportion to its area,
+    /// which is why the name label lives in the separate tooltip window.
+    pub fn magnification_room(&self) -> u32 {
+        if !self.magnification {
+            return 0;
+        }
+        (self.size as f32 * (self.magnification_scale - 1.0)).ceil() as u32 + 8
+    }
+
     fn sanitize(&mut self) {
         self.size = self.size.clamp(16, 128);
+        if !self.magnification_scale.is_finite() {
+            self.magnification_scale = 1.8;
+        }
+        self.magnification_scale = self.magnification_scale.clamp(1.1, 2.5);
+        self.magnification_range = self.magnification_range.clamp(1, 6);
         self.margin = self.margin.min(64);
         self.padding = self.padding.min(64);
         self.space_between_items = self.space_between_items.min(64);
@@ -165,6 +206,21 @@ pub struct AppSettings {
     /// Relaunch SideDock automatically after an unexpected exit.
     pub crash_recovery: bool,
     pub dock: DockSettings,
+    /// action id -> accelerator ("Ctrl+Alt+Backquote"); empty string = disabled
+    pub shortcuts: BTreeMap<String, String>,
+}
+
+/// Global shortcuts and their defaults. Keep in sync with `src/ui/shared/shortcuts.ts`.
+pub const SHORTCUT_DEFAULTS: &[(&str, &str)] = &[
+    ("toggle-dock", "Ctrl+Alt+Shift+D"),
+    ("open-settings", "Ctrl+Alt+Shift+S"),
+];
+
+pub fn default_shortcuts() -> BTreeMap<String, String> {
+    SHORTCUT_DEFAULTS
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 impl Default for AppSettings {
@@ -176,6 +232,7 @@ impl Default for AppSettings {
             autostart: false,
             crash_recovery: true,
             dock: DockSettings::default(),
+            shortcuts: default_shortcuts(),
         }
     }
 }
@@ -185,6 +242,12 @@ impl AppSettings {
         self.dock.sanitize();
         if self.accent_color.len() > 64 {
             self.accent_color.clear();
+        }
+        // unknown actions are dropped, missing ones (added in a newer version) get defaults
+        let defaults = default_shortcuts();
+        self.shortcuts.retain(|k, _| defaults.contains_key(k));
+        for (k, v) in defaults {
+            self.shortcuts.entry(k).or_insert(v);
         }
     }
 }

@@ -7,7 +7,7 @@ import { t } from "@shared/i18n/index.svelte.ts";
 import type { MenuEntry } from "@shared/menu.ts";
 import { MODULES } from "@shared/modules.ts";
 import type { AppDockItem, DockItem, ModuleId, UserAppWindow } from "@shared/types.ts";
-import { openMenu } from "./overlays.ts";
+import { openMenu, openPopup } from "./overlays.ts";
 import { dockActions, dockState, isHardcodedSeparator } from "./state/items.svelte.ts";
 import { layout } from "./state/layout.svelte.ts";
 
@@ -26,6 +26,22 @@ export function launchItem(item: AppDockItem, elevated = false): void {
   } else if (item.path) {
     api.launch(item.path, null, null, elevated);
   }
+}
+
+/**
+ * Primary click on an app: focus/minimize its window, list its windows, or launch it.
+ * `anchor` is the element popups (window list) are attached to.
+ */
+export function activateApp(item: AppDockItem, windows: UserAppWindow[], anchor: Element): void {
+  if (windows.length > 1) {
+    openPopup(anchor, "windows", { title: item.displayName, windows: $state.snapshot(windows) }, {
+      key: `windows:${item.id}`,
+    });
+    return;
+  }
+  const win = windows[0];
+  if (win) api.windowToggle(win.hwnd);
+  else launchItem(item);
 }
 
 // ---------------- app item ----------------

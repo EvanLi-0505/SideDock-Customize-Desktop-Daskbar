@@ -13,7 +13,7 @@ use crate::{
     app,
     error::{AppError, Result},
     logger,
-    modules::{apps, icons, system},
+    modules::{apps, hotkeys, icons, system},
     paths, session,
     state::{
         dock_items::{self, DockItem, DockItems},
@@ -43,7 +43,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         // dock widget
         dock_ready,
         dock_get_info,
-        dock_set_content_length,
+        dock_set_hitbox,
         dock_set_dragging,
         // windows
         get_windows,
@@ -72,11 +72,14 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         tooltip_show,
         tooltip_ready,
         tooltip_hide,
+        tooltip_follow,
         // app
         open_settings,
         settings_ready,
         get_app_info,
         get_system_colors,
+        get_shortcut_status,
+        shortcuts_suspend,
         get_storage_usage,
         open_data_dir,
         clear_data,
@@ -192,8 +195,8 @@ async fn dock_get_info(window: WebviewWindow) -> Option<DockInfo> {
 }
 
 #[tauri::command]
-async fn dock_set_content_length(window: WebviewWindow, length: f64) {
-    dock::set_content_length(window.label(), length);
+async fn dock_set_hitbox(window: WebviewWindow, hitbox: dock::Hitbox) {
+    dock::set_hitbox(window.label(), hitbox);
 }
 
 #[tauri::command]
@@ -383,6 +386,16 @@ async fn tooltip_ready(app: AppHandle, token: u64, width: f64, height: f64) -> R
 }
 
 #[tauri::command]
+async fn tooltip_follow(
+    app: AppHandle,
+    window: WebviewWindow,
+    anchor: AnchorRect,
+    placement: Placement,
+) -> Result<()> {
+    tooltip::follow(&app, &window, anchor, placement)
+}
+
+#[tauri::command]
 async fn tooltip_hide(app: AppHandle) {
     tooltip::hide(&app);
 }
@@ -419,6 +432,16 @@ async fn get_app_info() -> AppInfo {
         previous_session_crashed: session::previous_session_crashed(),
         debug: cfg!(debug_assertions),
     }
+}
+
+#[tauri::command]
+async fn get_shortcut_status() -> std::collections::BTreeMap<String, hotkeys::HotkeyStatus> {
+    hotkeys::status()
+}
+
+#[tauri::command]
+async fn shortcuts_suspend(suspended: bool) {
+    hotkeys::suspend(suspended);
 }
 
 #[tauri::command]

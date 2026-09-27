@@ -5,6 +5,7 @@
   import NumberInput from "@shared/components/NumberInput.svelte";
   import Segmented from "@shared/components/Segmented.svelte";
   import Select from "@shared/components/Select.svelte";
+  import Slider from "@shared/components/Slider.svelte";
   import Switch from "@shared/components/Switch.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api, iconUrl } from "@shared/ipc.ts";
@@ -15,6 +16,7 @@
     DockSide,
     HideMode,
     MiddleClickAction,
+    OverflowMode,
     PinnedItemsVisibility,
     TemporalItemsVisibility,
   } from "@shared/types.ts";
@@ -187,6 +189,56 @@
     </SettingsRow>
     <SettingsRow label={t("dock.showEndTask")}>
       <Switch checked={dock.showEndTask} onchange={(v) => set("showEndTask", v)} />
+    </SettingsRow>
+  </SettingsGroup>
+
+  <SettingsGroup>
+    {#snippet header()}
+      <SettingsRow label={t("dock.magnify")} strong>
+        <Switch checked={dock.magnification} onchange={(v) => set("magnification", v)} />
+      </SettingsRow>
+    {/snippet}
+    <SettingsRow label={t("dock.magnifyScale")}>
+      <Slider
+        value={dock.magnificationScale}
+        min={1.2}
+        max={2.5}
+        step={0.1}
+        disabled={!dock.magnification}
+        format={(v) => `${v.toFixed(1)}×`}
+        onchange={(v) => set("magnificationScale", v)}
+      />
+    </SettingsRow>
+    <SettingsRow label={t("dock.magnifyRange")}>
+      <Slider
+        value={dock.magnificationRange}
+        min={1}
+        max={6}
+        step={1}
+        disabled={!dock.magnification}
+        onchange={(v) => set("magnificationRange", v)}
+      />
+    </SettingsRow>
+    <SettingsRow label={t("dock.showLabels")}>
+      <Switch
+        checked={dock.showLabels}
+        disabled={!dock.magnification}
+        onchange={(v) => set("showLabels", v)}
+      />
+    </SettingsRow>
+  </SettingsGroup>
+
+  <SettingsGroup>
+    <SettingsRow label={t("dock.overflow")} hint={t("dock.overflowHint")} strong>
+      <Select
+        value={dock.overflowMode}
+        options={[
+          { value: "ShrinkThenStack" as OverflowMode, label: t("dock.overflowStack") },
+          { value: "ShrinkOnly" as OverflowMode, label: t("dock.overflowShrink") },
+          { value: "Collapse" as OverflowMode, label: t("dock.overflowCollapse") },
+        ]}
+        onchange={(v) => set("overflowMode", v)}
+      />
     </SettingsRow>
   </SettingsGroup>
 

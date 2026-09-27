@@ -1,8 +1,11 @@
-//! Auto-hide state machine (port of Seelen UI `weg/state/hidden.svelte.ts`, moved to the
-//! backend so it keeps working even while the webview is throttled).
+//! Pointer hit-testing and auto-hide (port of Seelen UI `weg/state/hidden.svelte.ts`,
+//! moved to the backend so it keeps working even while the webview is throttled).
 //!
-//! Hidden docks keep their window: the page slides the content out and the window
-//! becomes click-through. Fullscreen apps hide the window entirely.
+//! * Hit-testing (every frame): the dock window is larger than the visible bar, so it
+//!   is click-through except while the cursor is over the bar, or over the magnified
+//!   icons once the cursor has entered the bar.
+//! * Auto-hide: hidden docks keep their window; the page slides the content out and the
+//!   window stays click-through. Fullscreen apps hide the window entirely.
 
 use std::{
     collections::HashMap,
@@ -13,17 +16,23 @@ use serde::Serialize;
 use tauri::AppHandle;
 use windows::Win32::{Foundation::POINT, UI::WindowsAndMessaging::GetCursorPos};
 
-use super::{DOCKS, request_layout, set_window_visible};
+use super::{DOCKS, DockState, request_layout, set_window_visible};
 use crate::{
     app,
     modules::apps,
     state::settings::{self, DockSide, HideMode},
     widgets::{native, popup},
-    windows_api::{monitor, window::Window},
+    windows_api::{monitor, window::Rect, window::Window},
 };
 
 pub const EVENT_DOCK_HIDDEN: &str = "dock-hidden";
+/// Sent when the cursor leaves the dock, so the page can relax the magnification wave
+/// (a click-through window receives no `pointerleave`).
+pub const EVENT_POINTER_LEAVE: &str = "dock-pointer-leave";
 const EDGE_THRESHOLD: i32 = 2;
+const FRAME: Duration = Duration::from_millis(16);
+/// auto-hide runs every Nth frame (~50ms)
+const AUTOHIDE_EVERY: u32 = 3;
 
 #[derive(Serialize, Clone)]
 struct HiddenPayload {
@@ -42,23 +51,51 @@ fn cursor() -> (i32, i32) {
     (p.x, p.y)
 }
 
-fn inside(r: &crate::windows_api::window::Rect, (x, y): (i32, i32)) -> bool {
+fn inside(r: &Rect, (x, y): (i32, i32)) -> bool {
     x >= r.left && x < r.right && y >= r.top && y < r.bottom
 }
 
-pub fn start(app: AppHandle) {
-    crate::utils::spawn_supervised("dock-autohide", move || {
-        let mut pending: HashMap<String, Pending> = HashMap::new();
-        loop {
-            let settings = settings::get().dock;
-            let active = settings.hide_mode != HideMode::Never || settings.hide_on_fullscreen;
-            std::thread::sleep(Duration::from_millis(if active { 50 } else { 500 }));
+/// Makes the window receive the mouse only where the dock actually is.
+fn update_hit_test(app: &AppHandle, dock: &DockState, pos: (i32, i32)) {
+    let interactive = dock.ready
+        && !dock.hidden
+        && !dock.fullscreen_hidden
+        && (dock.dragging
+            || inside(&dock.bar(), pos)
+            || (dock.interactive && inside(&dock.hover_area(), pos)));
+    if interactive == dock.interactive {
+        return;
+    }
+    if let Some(d) = DOCKS.lock().get_mut(&dock.label) {
+        d.interactive = interactive;
+    }
+    native::set_click_through(dock.hwnd, !interactive);
+    if !interactive {
+        app::emit_to(app, &dock.label, EVENT_POINTER_LEAVE, &());
+    }
+}
 
-            let docks: Vec<_> = DOCKS.lock().values().cloned().collect();
+pub fn start(app: AppHandle) {
+    crate::utils::spawn_supervised("dock-pointer", move || {
+        let mut pending: HashMap<String, Pending> = HashMap::new();
+        let mut tick: u32 = 0;
+        loop {
+            std::thread::sleep(FRAME);
+            tick = tick.wrapping_add(1);
+
+            let docks: Vec<DockState> = DOCKS.lock().values().cloned().collect();
             if docks.is_empty() {
                 continue;
             }
             let pos = cursor();
+            for dock in &docks {
+                update_hit_test(&app, dock, pos);
+            }
+            if !tick.is_multiple_of(AUTOHIDE_EVERY) {
+                continue;
+            }
+
+            let settings = settings::get().dock;
             let windows = apps::windows();
             let foreground = Window::foreground();
             let fg_hwnd = foreground.map(|w| w.0).unwrap_or(0);
@@ -98,7 +135,7 @@ pub fn start(app: AppHandle) {
                 }
 
                 // ---- auto hide ----
-                let r = dock.rect;
+                let r = dock.bar();
                 let m = mon.rect;
                 let at_edge = match settings.position {
                     DockSide::Left => {
@@ -114,7 +151,7 @@ pub fn start(app: AppHandle) {
                         pos.1 >= m.bottom - 1 - EDGE_THRESHOLD && pos.0 >= r.left && pos.0 < r.right
                     }
                 };
-                let hovered = !dock.hidden && inside(&r, pos);
+                let hovered = !dock.hidden && dock.interactive;
                 let focused = fg_hwnd == dock.hwnd;
                 let engaged = at_edge
                     || hovered
@@ -159,7 +196,7 @@ pub fn start(app: AppHandle) {
                     if let Some(d) = DOCKS.lock().get_mut(&dock.label) {
                         d.hidden = want_hidden;
                     }
-                    native::set_click_through(dock.hwnd, want_hidden);
+                    // click-through follows on the next frame (see update_hit_test)
                     app::emit_to(
                         &app,
                         &dock.label,

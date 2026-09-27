@@ -30,11 +30,19 @@ scripts/package.mjs      portable zip packaging
 * The backend is the single source of truth. Every change is broadcast as an event
   (`settings-changed`, `dock-items-changed`, `windows-changed`, `system-state-changed`,
   ...); each webview keeps a reactive copy.
-* The dock computes nothing about its own window: it reports its content length and the
-  backend's dock worker (`widgets/dock/mod.rs`) sizes/positions the window and registers
-  the shell AppBar. All geometry changes are serialized through one worker thread.
-* Auto-hide runs in the backend (`widgets/dock/autohide.rs`) so it keeps working while a
-  webview is throttled. A hidden dock slides its content out and becomes click-through.
+* The dock never moves its own window: the backend's dock worker (`widgets/dock/mod.rs`)
+  sizes/positions the window and registers the shell AppBar. All geometry changes are
+  serialized through one worker thread.
+* The dock window covers the whole edge and is deeper than the visible bar, to leave room
+  for magnified icons. The page reports the bar rect (`dock_set_hitbox`); the backend
+  hit-tests the cursor every frame (`widgets/dock/autohide.rs`) and keeps the window
+  click-through everywhere else.
+* Auto-hide runs in the same backend loop so it keeps working while a webview is
+  throttled. A hidden dock slides its content out and becomes click-through.
+* Overflow (`ui/apps/dock/fit.ts`) and magnification (`ui/apps/dock/wave.ts`) only write
+  CSS variables and transforms, so the page never re-layouts per animation frame.
+* Global shortcuts (`modules/hotkeys.rs`) use `RegisterHotKey` on a dedicated
+  message-loop thread; no keyboard hook is installed.
 * Popups (context menus, window list, calendar, keyboard, bluetooth, power) share one
   reusable window. The requesting widget sends JSON describing the popup; actions are sent
   back to it with `popup-action`.
@@ -49,6 +57,9 @@ scripts/package.mjs      portable zip packaging
 * **A new widget** (e.g. a window switcher): add `ui/apps/<name>/index.html` (picked up
   automatically by Vite), a module under `background/widgets/` using `WidgetWindow`, and
   its commands in `commands.rs`.
+* **A global shortcut**: add the action to `SHORTCUT_DEFAULTS` (`state/settings.rs`) and
+  `SHORTCUT_ACTIONS` (`ui/shared/shortcuts.ts`), handle it in `app::run_shortcut`, add
+  its `shortcut.<id>` label to both locale files.
 * **A settings page**: add a component in `ui/apps/settings/pages/` and one entry in
   `ui/apps/settings/pages.ts`.
 

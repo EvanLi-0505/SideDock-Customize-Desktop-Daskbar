@@ -5,7 +5,7 @@
   import { api } from "@shared/ipc.ts";
   import { moduleMeta } from "@shared/modules.ts";
   import type { ModuleDockItem } from "@shared/types.ts";
-  import { showItemMenu } from "../../menus.ts";
+  import { showItemMenu } from "../../menus.svelte.ts";
   import { tooltip } from "../../overlays.ts";
   import { shouldSuppressClick } from "../../sortable.svelte.ts";
 

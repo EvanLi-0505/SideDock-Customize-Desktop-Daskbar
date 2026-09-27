@@ -12,6 +12,7 @@ export type TemporalItemsVisibility = "All" | "OnMonitor";
 export type PinnedItemsVisibility = "Always" | "WhenPrimary";
 export type MiddleClickAction = "CloseApp" | "OpenNewInstance";
 export type DockMonitors = "Primary" | "All";
+export type OverflowMode = "ShrinkThenStack" | "ShrinkOnly" | "Collapse";
 
 export interface DockSettings {
   enabled: boolean;
@@ -33,6 +34,11 @@ export interface DockSettings {
   showEndTask: boolean;
   middleClickAction: MiddleClickAction;
   hideOnFullscreen: boolean;
+  magnification: boolean;
+  magnificationScale: number;
+  magnificationRange: number;
+  showLabels: boolean;
+  overflowMode: OverflowMode;
 }
 
 export interface AppSettings {
@@ -42,7 +48,11 @@ export interface AppSettings {
   autostart: boolean;
   crashRecovery: boolean;
   dock: DockSettings;
+  /** action id -> accelerator ("Ctrl+Alt+Backquote"), "" = disabled */
+  shortcuts: Record<string, string>;
 }
+
+export type ShortcutStatus = "active" | "disabled" | "invalid" | "conflict" | "suspended";
 
 export interface Relaunch {
   command: string;

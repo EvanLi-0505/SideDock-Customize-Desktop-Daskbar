@@ -2,5 +2,6 @@
 
 pub mod apps;
 pub mod autostart;
+pub mod hotkeys;
 pub mod icons;
 pub mod system;

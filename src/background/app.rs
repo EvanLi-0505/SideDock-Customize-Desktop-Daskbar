@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, EventTarget, Manager, RunEvent};
 use crate::{
     commands,
     error::{Result, ResultLogExt},
-    modules::{apps, autostart, icons, system},
+    modules::{apps, autostart, hotkeys, icons, system},
     paths, session,
     state::{
         dock_items,
@@ -57,7 +57,23 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
     if old.dock != new.dock {
         widgets::dock::request_reconcile();
     }
+    if old.shortcuts != new.shortcuts {
+        hotkeys::reload();
+    }
     Ok(new)
+}
+
+/// Runs the action bound to a global shortcut (called on the hotkey thread).
+pub fn run_shortcut(app: &AppHandle, action: &str) {
+    match action {
+        "toggle-dock" => {
+            let mut s = settings::get();
+            s.dock.enabled = !s.dock.enabled;
+            apply_settings(app, s).log_error();
+        }
+        "open-settings" => widgets::settings::open(app).log_error(),
+        other => log::warn!("no handler for shortcut action {other}"),
+    }
 }
 
 pub fn broadcast_dock_items(source: &str) {
@@ -146,6 +162,7 @@ pub fn run() {
 
             apps::start();
             system::start();
+            hotkeys::start(handle.clone());
             tray::create(&handle)?;
             widgets::popup::create(&handle)?;
             widgets::tooltip::create(&handle)?;

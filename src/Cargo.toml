@@ -1,6 +1,6 @@
 [package]
 name = "sidedock"
-version = "1.0.0"
+version = "1.1.0"
 description = "A portable side dock for Windows that coexists with the native taskbar"
 authors = ["SideDock contributors"]
 license = "AGPL-3.0-or-later"

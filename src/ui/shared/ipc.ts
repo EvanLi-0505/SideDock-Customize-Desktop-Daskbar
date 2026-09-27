@@ -12,6 +12,7 @@ import type {
   DockItems,
   FocusedApp,
   Placement,
+  ShortcutStatus,
   StorageUsage,
   SystemColors,
   SystemState,
@@ -26,6 +27,8 @@ export const Events = {
   SystemState: "system-state-changed",
   DockInfo: "dock-info",
   DockHidden: "dock-hidden",
+  DockPointerLeave: "dock-pointer-leave",
+  ShortcutStatus: "shortcut-status-changed",
   PopupRender: "popup-render",
   PopupClosed: "popup-closed",
   PopupAction: "popup-action",
@@ -56,7 +59,14 @@ export const api = {
   // dock widget
   dockReady: () => fire(invoke("dock_ready")),
   dockGetInfo: () => invoke<DockInfo | null>("dock_get_info"),
-  dockSetContentLength: (length: number) => fire(invoke("dock_set_content_length", { length })),
+  dockSetHitbox: (hitbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    inward: number;
+    along: number;
+  }) => fire(invoke("dock_set_hitbox", { hitbox })),
   dockSetDragging: (dragging: boolean) => fire(invoke("dock_set_dragging", { dragging })),
 
   // windows
@@ -105,12 +115,17 @@ export const api = {
   tooltipReady: (token: number, width: number, height: number) =>
     fire(invoke("tooltip_ready", { token, width, height })),
   tooltipHide: () => fire(invoke("tooltip_hide")),
+  /** moves the visible tooltip without re-rendering it (dock magnification label) */
+  tooltipFollow: (anchor: AnchorRect, placement: Placement) =>
+    fire(invoke("tooltip_follow", { anchor, placement })),
 
   // app
   openSettings: () => fire(invoke("open_settings")),
   settingsReady: () => fire(invoke("settings_ready")),
   getAppInfo: () => invoke<AppInfo>("get_app_info"),
   getSystemColors: () => invoke<SystemColors>("get_system_colors"),
+  getShortcutStatus: () => invoke<Record<string, ShortcutStatus>>("get_shortcut_status"),
+  shortcutsSuspend: (suspended: boolean) => fire(invoke("shortcuts_suspend", { suspended })),
   getStorageUsage: () => invoke<StorageUsage>("get_storage_usage"),
   openDataDir: (kind: DataKind) => invoke("open_data_dir", { kind }),
   clearData: (kind: DataKind) => invoke<ClearResult>("clear_data", { kind }),

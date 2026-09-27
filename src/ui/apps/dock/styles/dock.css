@@ -8,10 +8,12 @@
   --weg-max-taskbar-height: calc(100vh - var(--config-margin) * 2);
   --dock-size: calc(var(--config-item-size) + (var(--config-padding) + var(--config-margin)) * 2);
 
-  --item-inner-spacing: calc(var(--config-item-size) * 0.15);
-  --item-border-radius: calc(var(--config-item-size) * 0.25);
-  --item-size-medium: calc(var(--config-item-size) * 2 + var(--config-space-between-items));
-  --item-size-large: calc(var(--config-item-size) * 3 + var(--config-space-between-items) * 2);
+  /* rendered icon size: the configured size, shrunk when the dock is crowded (Dock.svelte) */
+  --item: var(--item-size, var(--config-item-size));
+  --item-inner-spacing: calc(var(--item) * 0.15);
+  --item-border-radius: calc(var(--item) * 0.25);
+  --item-size-medium: calc(var(--item) * 2 + var(--config-space-between-items));
+  --item-size-large: calc(var(--item) * 3 + var(--config-space-between-items) * 2);
 }
 
 html,
@@ -77,9 +79,11 @@ body {
   height: min-content;
   color: var(--fg);
 
+  /* grows past the items while the magnification wave pushes them (fit-content mode) */
   .taskbar-bg {
     position: absolute;
     inset: 0;
+    transition: none;
     background: var(--dock-bg);
     border: 1px solid var(--dock-border);
     box-shadow: var(--dock-highlight, 0 0 0 transparent), var(--shadow-m);
@@ -95,18 +99,15 @@ body {
     }
   }
 
+  /* items always fit (shrink / stack / collapse), so nothing scrolls and magnified
+     icons may leave the bar */
   .weg-items-container {
     position: relative;
-    overflow: auto;
-    scrollbar-width: none;
+    overflow: visible;
     max-width: var(--weg-max-taskbar-width);
     max-height: var(--weg-max-taskbar-height);
     height: 100%;
     padding: var(--config-padding);
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
 
     .weg-items {
       display: flex;
@@ -147,6 +148,15 @@ body {
     .weg-items-right {
       flex-direction: row;
     }
+  }
+
+  &.vertical .taskbar-bg {
+    top: calc(-1 * var(--grow-start, 0px));
+    bottom: calc(-1 * var(--grow-end, 0px));
+  }
+  &.horizontal .taskbar-bg {
+    left: calc(-1 * var(--grow-start, 0px));
+    right: calc(-1 * var(--grow-end, 0px));
   }
 
   &.vertical {
@@ -210,11 +220,26 @@ body {
 /* ============ drag ============ */
 
 .weg-item-drag-container {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   touch-action: none;
+
+  /* magnified icons grow toward the screen, away from the edge */
+  .left & {
+    transform-origin: left center;
+  }
+  .right & {
+    transform-origin: right center;
+  }
+  .top & {
+    transform-origin: center top;
+  }
+  .bottom & {
+    transform-origin: center bottom;
+  }
 
   &.dragging {
     opacity: 0.55;
@@ -225,6 +250,30 @@ body {
 body.dragging * {
   cursor: grabbing !important;
 }
+
+/* ============ stacking (crowded dock) ============ */
+/* each item slides under the previous one; later items are painted on top */
+
+.taskbar.stacked.vertical .weg-item-drag-container + .weg-item-drag-container {
+  margin-top: calc(-1 * var(--stack-overlap, 0px));
+}
+.taskbar.stacked.horizontal .weg-item-drag-container + .weg-item-drag-container {
+  margin-left: calc(-1 * var(--stack-overlap, 0px));
+}
+.taskbar.stacked .weg-item {
+  box-shadow:
+    0 -1px 3px rgb(0 0 0 / 0.12),
+    var(--shadow-s);
+}
+
+/* ============ magnification ============ */
+
+/* while the wave moves, icons live on compositor layers (see wave.ts) */
+.weg-items-container.waving .weg-item-drag-container {
+  will-change: transform;
+}
+
+
 
 .weg-split-items {
   display: flex;
@@ -358,8 +407,8 @@ body.dragging * {
   overflow: hidden;
   gap: var(--item-inner-spacing);
   padding: var(--item-inner-spacing);
-  height: var(--config-item-size);
-  width: var(--config-item-size);
+  height: var(--item);
+  width: var(--item);
   background: var(--dock-item-bg);
   border-radius: var(--item-border-radius);
   box-shadow: var(--shadow-s);
@@ -370,11 +419,9 @@ body.dragging * {
     transform var(--dur-fast) ease;
   animation: item-in 220ms var(--ease);
 
+  /* background only: a filter on hover would repaint the icon on every crossing */
   &:hover {
     background: var(--dock-item-hover);
-    .weg-item-icon {
-      filter: brightness(1.05) saturate(1.1);
-    }
   }
   &:active {
     transform: scale(0.94);
@@ -408,7 +455,7 @@ body.dragging * {
   &.has-title {
     .horizontal & {
       width: fit-content;
-      min-width: var(--config-item-size);
+      min-width: var(--item);
       max-width: var(--item-size-large);
       justify-content: flex-start;
     }
@@ -419,7 +466,7 @@ body.dragging * {
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
-    font-size: max(calc(var(--config-item-size) / 3.2), 12px);
+    font-size: max(calc(var(--item) / 3.2), 12px);
     font-weight: 600;
   }
 }
@@ -479,15 +526,15 @@ body.dragging * {
   text-align: center;
 
   .clock-inline {
-    font-size: calc(var(--config-item-size) * 0.3);
+    font-size: calc(var(--item) * 0.3);
   }
   .clock-stack {
     display: flex;
     flex-direction: column;
-    font-size: calc(var(--config-item-size) * 0.32);
+    font-size: calc(var(--item) * 0.32);
   }
   .keyboard-label {
-    font-size: calc(var(--config-item-size) * 0.34);
+    font-size: calc(var(--item) * 0.34);
   }
 }
 
@@ -525,8 +572,8 @@ body.dragging * {
 
   .media-session-thumb {
     flex-shrink: 0;
-    width: var(--config-item-size);
-    height: var(--config-item-size);
+    width: var(--item);
+    height: var(--item);
     display: flex;
     align-items: center;
     justify-content: center;

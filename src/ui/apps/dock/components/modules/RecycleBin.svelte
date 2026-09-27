@@ -3,7 +3,7 @@
   import { api } from "@shared/ipc.ts";
   import type { ModuleDockItem } from "@shared/types.ts";
   import { systemState } from "../../state/system.svelte.ts";
-  import { showItemMenu } from "../../menus.ts";
+  import { showItemMenu } from "../../menus.svelte.ts";
   import { tooltip } from "../../overlays.ts";
   import { shouldSuppressClick } from "../../sortable.svelte.ts";
 

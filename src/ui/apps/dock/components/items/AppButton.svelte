@@ -4,8 +4,8 @@
   import type { AppDockItem, UserAppWindow } from "@shared/types.ts";
   import { layout } from "../../state/layout.svelte.ts";
   import { systemState } from "../../state/system.svelte.ts";
-  import { launchItem, showAppMenu } from "../../menus.ts";
-  import { openPopup, tooltip } from "../../overlays.ts";
+  import { activateApp, launchItem, showAppMenu } from "../../menus.svelte.ts";
+  import { tooltip } from "../../overlays.ts";
   import { shouldSuppressClick } from "../../sortable.svelte.ts";
 
   let { item, windows }: { item: AppDockItem; windows: UserAppWindow[] } = $props();
@@ -20,13 +20,7 @@
 
   function onClick() {
     if (shouldSuppressClick()) return;
-    if (windows.length > 1) {
-      openPopup(el!, "windows", { title: item.displayName, windows: $state.snapshot(windows) }, { key: `windows:${item.id}` });
-      return;
-    }
-    const win = windows[0];
-    if (win) api.windowToggle(win.hwnd);
-    else launchItem(item);
+    activateApp(item, windows, el!);
   }
 
   function onAuxClick(e: MouseEvent) {

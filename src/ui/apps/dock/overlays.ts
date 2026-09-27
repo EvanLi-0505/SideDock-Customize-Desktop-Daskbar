@@ -15,6 +15,9 @@ export async function initOverlays(): Promise<void> {
   });
 }
 
+/** Fired on `window` when this dock opens a popup, so the magnification label steps aside. */
+export const POPUP_OPENED_EVENT = "sidedock:popup-opened";
+
 export function openPopup(
   el: Element,
   kind: string,
@@ -22,6 +25,7 @@ export function openPopup(
   opts: { key?: string; onAction?: ActionHandler } = {},
 ): void {
   handler = opts.onAction ?? null;
+  window.dispatchEvent(new Event(POPUP_OPENED_EVENT));
   api.popupOpen({
     kind,
     data,
@@ -36,6 +40,7 @@ export function openMenu(e: MouseEvent, items: MenuEntry[], onAction: ActionHand
   e.preventDefault();
   e.stopPropagation();
   handler = onAction;
+  window.dispatchEvent(new Event(POPUP_OPENED_EVENT));
   api.popupOpen({
     kind: "menu",
     data: { items },
@@ -67,6 +72,8 @@ export function tooltip(node: HTMLElement, getText: () => string | null | undefi
   let current = getText;
   const enter = () => {
     hideTooltip();
+    // the magnification label already names the item
+    if (layout.settings.magnification && layout.settings.showLabels) return;
     tooltipTimer = setTimeout(() => {
       const text = current();
       if (!text) return;

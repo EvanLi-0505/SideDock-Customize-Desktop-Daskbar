@@ -1,9 +1,14 @@
 //! The dock ("SeelenWeg" in Seelen UI). One transparent webview per monitor.
 //!
-//! The backend owns the geometry: it computes the window rect from the settings, the
-//! monitor work area and the content length reported by the page, and registers the
-//! dock as a shell AppBar when it should reserve space. Unlike Seelen UI the native
-//! Windows taskbar is never touched, so both bars can live side by side.
+//! The backend owns the geometry: it computes the window rect from the settings and the
+//! monitor work area, and registers the dock as a shell AppBar when it should reserve
+//! space. Unlike Seelen UI the native Windows taskbar is never touched, so both bars can
+//! live side by side.
+//!
+//! The window spans the whole edge and is deeper than the visible bar: the extra room on
+//! the inner side hosts magnified icons and their labels. Only the bar (reported by the
+//! page, see [`Hitbox`]) receives the mouse; everything else is click-through
+//! (see `autohide.rs`).
 //!
 //! Every mutation of window geometry goes through a single worker thread
 //! ([`request`]) so concurrent events can never race each other.
@@ -21,7 +26,7 @@ use std::{
 };
 
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use windows::Win32::{
     Foundation::HWND,
@@ -32,7 +37,7 @@ use super::{WidgetWindow, hwnd_of, native, set_tool_window};
 use crate::{
     app,
     error::{Result, ResultLogExt},
-    state::settings::{self, DockMode, DockMonitors, DockSide, HideMode},
+    state::settings::{self, DockMonitors, DockSide, HideMode},
     windows_api::{
         app_bar,
         monitor::{self, MonitorInfo},
@@ -42,13 +47,29 @@ use crate::{
 
 pub const EVENT_DOCK_INFO: &str = "dock-info";
 
+/// Visible bar reported by the page, in CSS px relative to the dock window.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hitbox {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    /// how far magnified icons reach past the bar toward the screen center
+    pub inward: f64,
+    /// how far the magnification wave can push icons past both ends of the bar
+    pub along: f64,
+}
+
 #[derive(Debug, Clone)]
 pub struct DockState {
     pub label: String,
     pub monitor: isize,
     pub hwnd: isize,
-    /// natural length of the content along the dock axis, in CSS px
-    pub content_length: f64,
+    pub scale: f64,
+    pub hitbox: Option<Hitbox>,
+    /// false while the window is click-through
+    pub interactive: bool,
     pub ready: bool,
     /// the window was shown at least once (auto-hide may only "repair" it after that)
     pub shown: bool,
@@ -57,8 +78,79 @@ pub struct DockState {
     /// window hidden because a fullscreen app is focused on this monitor
     pub fullscreen_hidden: bool,
     pub dragging: bool,
-    pub rect: Rect,
+    /// physical rect of the whole (partly transparent) window
+    pub window: Rect,
     pub side: DockSide,
+}
+
+impl DockState {
+    fn to_physical(&self, x: f64, y: f64, w: f64, h: f64) -> Rect {
+        let s = self.scale;
+        Rect {
+            left: self.window.left + (x * s).round() as i32,
+            top: self.window.top + (y * s).round() as i32,
+            right: self.window.left + ((x + w) * s).round() as i32,
+            bottom: self.window.top + ((y + h) * s).round() as i32,
+        }
+    }
+
+    /// Physical rect of the visible bar.
+    pub fn bar(&self) -> Rect {
+        if let Some(h) = self.hitbox {
+            return self.to_physical(h.x, h.y, h.width, h.height);
+        }
+        // until the page reports it: the full edge strip
+        let thickness = (settings::get().dock.total_thickness() as f64 * self.scale).round() as i32;
+        let w = self.window;
+        match self.side {
+            DockSide::Left => Rect {
+                right: w.left + thickness,
+                ..w
+            },
+            DockSide::Right => Rect {
+                left: w.right - thickness,
+                ..w
+            },
+            DockSide::Top => Rect {
+                bottom: w.top + thickness,
+                ..w
+            },
+            DockSide::Bottom => Rect {
+                top: w.bottom - thickness,
+                ..w
+            },
+        }
+    }
+
+    /// Bar plus the room magnified icons use while the cursor is over the dock.
+    pub fn hover_area(&self) -> Rect {
+        let mut r = self.bar();
+        let Some(h) = self.hitbox else {
+            return r;
+        };
+        let inward = (h.inward * self.scale).round() as i32;
+        let along = (h.along * self.scale).round() as i32;
+        match self.side {
+            DockSide::Left => r.right += inward,
+            DockSide::Right => r.left -= inward,
+            DockSide::Top => r.bottom += inward,
+            DockSide::Bottom => r.top -= inward,
+        }
+        if self.side.is_horizontal() {
+            r.left -= along;
+            r.right += along;
+        } else {
+            r.top -= along;
+            r.bottom += along;
+        }
+        let w = self.window;
+        Rect {
+            left: r.left.max(w.left),
+            top: r.top.max(w.top),
+            right: r.right.min(w.right),
+            bottom: r.bottom.min(w.bottom),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -214,13 +306,15 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
                 label: label.clone(),
                 monitor: monitor.id,
                 hwnd: hwnd_of(&window)?,
-                content_length: 0.0,
+                scale: monitor.scale_factor,
+                hitbox: None,
+                interactive: true,
                 ready: false,
                 shown: false,
                 hidden: false,
                 fullscreen_hidden: false,
                 dragging: false,
-                rect: Rect::default(),
+                window: Rect::default(),
                 side: settings.position,
             },
         );
@@ -269,40 +363,32 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
     let wa = base_work_area(&monitor, dock.hwnd);
     let scale = monitor.scale_factor;
     let thickness = (settings.total_thickness() as f64 * scale).round() as i32;
-    let horizontal = side.is_horizontal();
-    let span = if horizontal { wa.width() } else { wa.height() };
-    let length = match settings.mode {
-        DockMode::FullWidth => span,
-        DockMode::MinContent => {
-            let natural = (dock.content_length + settings.margin as f64 * 2.0) * scale;
-            (natural.round() as i32).clamp(thickness.min(span), span)
-        }
-    };
-    let start = if horizontal { wa.left } else { wa.top } + (span - length) / 2;
-
+    // the page sizes the bar itself (full width or fit content) inside a window that
+    // covers the whole edge plus the magnification room
+    let depth = thickness + (settings.magnification_room() as f64 * scale).round() as i32;
     let rect = match side {
         DockSide::Left => Rect {
             left: wa.left,
-            top: start,
-            right: wa.left + thickness,
-            bottom: start + length,
+            top: wa.top,
+            right: wa.left + depth,
+            bottom: wa.bottom,
         },
         DockSide::Right => Rect {
-            left: wa.right - thickness,
-            top: start,
+            left: wa.right - depth,
+            top: wa.top,
             right: wa.right,
-            bottom: start + length,
+            bottom: wa.bottom,
         },
         DockSide::Top => Rect {
-            left: start,
+            left: wa.left,
             top: wa.top,
-            right: start + length,
-            bottom: wa.top + thickness,
+            right: wa.right,
+            bottom: wa.top + depth,
         },
         DockSide::Bottom => Rect {
-            left: start,
-            top: wa.bottom - thickness,
-            right: start + length,
+            left: wa.left,
+            top: wa.bottom - depth,
+            right: wa.right,
             bottom: wa.bottom,
         },
     };
@@ -341,7 +427,7 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
         app_bar::unregister(dock.hwnd);
     }
 
-    if rect != dock.rect {
+    if rect != dock.window {
         unsafe {
             SetWindowPos(
                 HWND(dock.hwnd as *mut _),
@@ -362,8 +448,9 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
         hidden: dock.hidden,
     };
     if let Some(stored) = DOCKS.lock().get_mut(label) {
-        stored.rect = rect;
+        stored.window = rect;
         stored.side = side;
+        stored.scale = scale;
     }
     app::emit_to(app, label, EVENT_DOCK_INFO, &info);
     Ok(())
@@ -374,7 +461,7 @@ pub fn info(label: &str) -> Option<DockInfo> {
     Some(DockInfo {
         label: dock.label,
         monitor: monitor::by_id(dock.monitor)?,
-        rect: dock.rect,
+        rect: dock.window,
         hidden: dock.hidden,
     })
 }
@@ -402,19 +489,9 @@ pub fn set_ready(label: &str) {
     }
 }
 
-pub fn set_content_length(label: &str, length: f64) {
-    let changed = {
-        let mut docks = DOCKS.lock();
-        match docks.get_mut(label) {
-            Some(dock) if (dock.content_length - length).abs() >= 0.5 => {
-                dock.content_length = length;
-                true
-            }
-            _ => false,
-        }
-    };
-    if changed && settings::get().dock.mode == DockMode::MinContent {
-        request_layout(label);
+pub fn set_hitbox(label: &str, hitbox: Hitbox) {
+    if let Some(dock) = DOCKS.lock().get_mut(label) {
+        dock.hitbox = Some(hitbox);
     }
 }
 

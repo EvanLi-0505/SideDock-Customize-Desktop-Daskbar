@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 - 2026-09-27
+
+### Dock
+
+- macOS-like magnification: icons under the cursor zoom past the bar and their
+  neighbours grow in a smooth wave that follows the cursor; the app name is shown next to
+  the magnified icon. Zoom, range and labels are configurable.
+- Crowded docks never scroll anymore. Icons shrink first, then (configurable):
+  stack like cards (each icon slides under the next one), keep shrinking, or collapse the
+  last apps into a "More" button with a grid popup.
+- Only the visible bar receives the mouse; the rest of the dock window is click-through.
+
+### Shortcuts
+
+- New "Shortcuts" settings page with global shortcuts (show/hide the dock, open settings):
+  record a combination, conflicts with Windows or other programs are reported, restore
+  defaults. Shortcuts are paused while recording so the keys reach the page.
+
 ## 1.0.0 - 2026-09-26
 
 First public release.
