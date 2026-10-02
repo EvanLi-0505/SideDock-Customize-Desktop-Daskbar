@@ -55,11 +55,13 @@
   --shadow-l: 0 16px 40px rgb(16 24 40 / 0.16), 0 4px 10px rgb(16 24 40 / 0.08);
 
   /* dock */
-  --dock-bg: rgb(245 246 249 / 0.92);
+  /* --dock-alpha: user setting (Home > Theme), solid themes only */
+  --dock-bg: rgb(245 246 249 / var(--dock-alpha, 0.92));
   --dock-border: rgb(255 255 255 / 0.9);
   --dock-item-bg: #ffffff;
   --dock-item-hover: #f0f2f6;
   --dock-indicator: #6b7280;
+  --dock-separator: rgb(0 0 0 / 0.72);
 }
 
 /* ---------- dark ---------- */
@@ -82,11 +84,12 @@
   --shadow-m: 0 6px 16px rgb(0 0 0 / 0.45), 0 2px 4px rgb(0 0 0 / 0.3);
   --shadow-l: 0 18px 44px rgb(0 0 0 / 0.55), 0 4px 10px rgb(0 0 0 / 0.35);
 
-  --dock-bg: rgb(28 30 35 / 0.92);
+  --dock-bg: rgb(28 30 35 / var(--dock-alpha, 0.92));
   --dock-border: rgb(255 255 255 / 0.08);
   --dock-item-bg: #2a2e35;
   --dock-item-hover: #343943;
   --dock-indicator: #9aa1ad;
+  --dock-separator: rgb(255 255 255 / 0.9);
 }
 
 /* ---------- glass: translucent surfaces ---------- */
@@ -99,9 +102,10 @@
   --border: rgb(255 255 255 / 0.7);
   --border-strong: rgb(0 0 0 / 0.1);
 
-  /* no native blur behind the dock: keep it frosted enough to stay readable */
-  --dock-bg: linear-gradient(160deg, rgb(250 251 255 / 0.8), rgb(232 237 247 / 0.72));
-  --dock-border: rgb(255 255 255 / 0.85);
+  /* drawn over a native blur window (widgets/dock/backdrop.rs) */
+  --dock-bg: linear-gradient(160deg, rgb(255 255 255 / 0.14), rgb(236 240 248 / 0.07));
+  --dock-border: rgb(255 255 255 / 0.45);
+  --dock-highlight: inset 0 1px 0 rgb(255 255 255 / 0.5);
   --dock-item-bg: rgb(255 255 255 / 0.94);
   --dock-item-hover: #ffffff;
 }
@@ -115,7 +119,7 @@
   --border: rgb(255 255 255 / 0.1);
   --border-strong: rgb(255 255 255 / 0.16);
 
-  --dock-bg: linear-gradient(160deg, rgb(52 56 66 / 0.8), rgb(24 26 31 / 0.74));
+  --dock-bg: linear-gradient(160deg, rgb(52 56 66 / 0.3), rgb(20 22 27 / 0.28));
   --dock-border: rgb(255 255 255 / 0.14);
   --dock-item-bg: rgb(255 255 255 / 0.12);
   --dock-item-hover: rgb(255 255 255 / 0.2);
@@ -152,4 +156,21 @@
   --dock-item-bg: rgb(255 255 255 / 0.1);
   --dock-item-hover: rgb(255 255 255 / 0.2);
   --dock-highlight: inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+/* glass themes: an etched line (dock.css separator) */
+:root[data-glass] {
+  --dock-separator: rgb(0 0 0 / 0.6);
+  --dock-separator-edge: rgb(255 255 255 / 0.4);
+}
+:root[data-glass][data-scheme="dark"] {
+  --dock-separator: rgb(0 0 0 / 0.7);
+  --dock-separator-edge: rgb(255 255 255 / 0.28);
+}
+
+/* clear glass sits on any wallpaper with almost no tint: a real black + white pair */
+:root[data-theme="clear"] {
+  --dock-separator: rgb(0 0 0 / 0.6);
+  --dock-separator-edge: rgb(255 255 255 / 0.85);
+  --dock-separator-edge-size: 1.5px;
 }

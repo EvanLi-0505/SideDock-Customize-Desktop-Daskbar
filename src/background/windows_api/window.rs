@@ -10,8 +10,9 @@ use windows::{
         },
         Storage::EnhancedStorage::PKEY_AppUserModel_ID,
         System::Threading::{
-            OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
-            QueryFullProcessImageNameW, TerminateProcess,
+            AttachThreadInput, GetCurrentThreadId, OpenProcess, PROCESS_NAME_WIN32,
+            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, QueryFullProcessImageNameW,
+            TerminateProcess,
         },
         UI::{
             Input::KeyboardAndMouse::{
@@ -20,11 +21,12 @@ use windows::{
             },
             Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow},
             WindowsAndMessaging::{
-                EnumWindows, GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetClassNameW, GetForegroundWindow,
-                GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-                GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, IsZoomed,
-                PostMessageW, SW_MINIMIZE, SW_RESTORE, SetForegroundWindow, ShowWindowAsync,
-                WM_CLOSE, WS_CHILD, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+                BringWindowToTop, EnumWindows, GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetClassNameW,
+                GetForegroundWindow, GetWindow, GetWindowLongPtrW, GetWindowRect,
+                GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
+                IsWindowVisible, IsZoomed, PostMessageW, SW_MINIMIZE, SW_RESTORE,
+                SetForegroundWindow, ShowWindowAsync, WM_CLOSE, WS_CHILD, WS_EX_APPWINDOW,
+                WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
             },
         },
     },
@@ -250,35 +252,79 @@ impl Window {
     }
 
     /// Restores (if minimized) and brings the window to the foreground.
-    ///
-    /// Windows only lets the foreground process change the foreground window; a
-    /// synthetic ALT press is the documented-by-practice way to be granted that right.
     pub fn focus(self) -> Result<()> {
         if self.is_minimized() {
             unsafe {
                 let _ = ShowWindowAsync(self.hwnd(), SW_RESTORE);
             }
         }
-        let alt = |flags: KEYBD_EVENT_FLAGS| INPUT {
-            r#type: INPUT_KEYBOARD,
-            Anonymous: INPUT_0 {
-                ki: KEYBDINPUT {
-                    wVk: VK_MENU,
-                    dwFlags: flags,
-                    ..Default::default()
-                },
-            },
-        };
+        self.bring_to_foreground(true)
+    }
+
+    fn is_foreground(self) -> bool {
+        unsafe { GetForegroundWindow() }.0 as isize == self.0
+    }
+
+    fn wait_foreground(self) -> bool {
+        for _ in 0..10 {
+            if self.is_foreground() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        false
+    }
+
+    /// Windows only lets the foreground process change the foreground window. Escalates
+    /// like Seelen UI: plain call, then attached to the foreground thread's input state,
+    /// then (if `alt_tap`) a synthetic Alt tap, which grants the right.
+    ///
+    /// `alt_tap` must be false while the user physically holds Alt (window switcher): the
+    /// synthetic key-up would read as "Alt released".
+    pub fn bring_to_foreground(self, alt_tap: bool) -> Result<()> {
+        if self.is_foreground() {
+            return Ok(());
+        }
         unsafe {
-            SendInput(
-                &[alt(KEYBD_EVENT_FLAGS(0)), alt(KEYEVENTF_KEYUP)],
-                std::mem::size_of::<INPUT>() as i32,
-            );
-            if !SetForegroundWindow(self.hwnd()).as_bool() {
-                return Err("SetForegroundWindow was refused".into());
+            if SetForegroundWindow(self.hwnd()).as_bool() && self.wait_foreground() {
+                return Ok(());
+            }
+            let foreground = GetForegroundWindow();
+            let their_thread = GetWindowThreadProcessId(foreground, None);
+            let our_thread = GetCurrentThreadId();
+            let attached = their_thread != 0
+                && their_thread != our_thread
+                && AttachThreadInput(our_thread, their_thread, true).as_bool();
+            let _ = BringWindowToTop(self.hwnd());
+            let _ = SetForegroundWindow(self.hwnd());
+            if attached {
+                let _ = AttachThreadInput(our_thread, their_thread, false);
+            }
+            if self.wait_foreground() {
+                return Ok(());
+            }
+            if alt_tap {
+                let alt = |flags: KEYBD_EVENT_FLAGS| INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: VK_MENU,
+                            dwFlags: flags,
+                            ..Default::default()
+                        },
+                    },
+                };
+                SendInput(
+                    &[alt(KEYBD_EVENT_FLAGS(0)), alt(KEYEVENTF_KEYUP)],
+                    std::mem::size_of::<INPUT>() as i32,
+                );
+                let _ = SetForegroundWindow(self.hwnd());
+                if self.wait_foreground() {
+                    return Ok(());
+                }
             }
         }
-        Ok(())
+        Err("SetForegroundWindow was refused".into())
     }
 
     /// Mirrors the "shown on the taskbar" rules used by Explorer (and by Seelen UI).

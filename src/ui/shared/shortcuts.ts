@@ -10,6 +10,8 @@ export interface ShortcutAction {
 export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: "toggle-dock", defaultAccelerator: "Ctrl+Alt+Shift+D" },
   { id: "open-settings", defaultAccelerator: "Ctrl+Alt+Shift+S" },
+  { id: "open-launcher", defaultAccelerator: "Alt+Shift+Space" },
+  { id: "window-switcher", defaultAccelerator: "Alt+Backquote" },
 ];
 
 export function defaultShortcuts(): Record<string, string> {

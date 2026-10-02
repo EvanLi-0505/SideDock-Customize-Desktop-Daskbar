@@ -7,6 +7,7 @@
   import { api, Events, on } from "@shared/ipc.ts";
   import type { AppDockItem, DockItem } from "@shared/types.ts";
   import { dockState, getWindowsForItem, listToGroups } from "../state/items.svelte.ts";
+  import { settingsState } from "@shared/state/settings.svelte.ts";
   import { layout } from "../state/layout.svelte.ts";
   import { systemState } from "../state/system.svelte.ts";
   import { showDockMenu } from "../menus.svelte.ts";
@@ -188,6 +189,104 @@
     return () => observer.disconnect();
   });
 
+  // ---------------- frosted glass backdrop ----------------
+  // A webview cannot blur what is behind its window: with the frosted theme the backend
+  // puts a native blur window under the bar. It follows the bar, including the growth of
+  // the magnification wave (sent from the wave's own frame, no extra layout reads).
+
+  const frosted = $derived(settingsState.value.theme === "glass");
+  $effect(() => {
+    // re-measure when anything that changes the bar shape changes
+    void [settings.margin, settings.mode, settings.position, layout.horizontal];
+    if (!barEl || !wave || !frosted) {
+      api.dockSetBackdrop(null);
+      return;
+    }
+    const bar = barEl;
+    const waveRef = wave;
+    const bg = bar.querySelector<HTMLElement>(".taskbar-bg");
+    const root = document.getElementById("root")!;
+    const horizontal = layout.horizontal;
+    let rest = { x: 0, y: 0, width: 0, height: 0, radius: 0 };
+    let grow = { start: 0, end: 0 };
+    let last = "";
+    const send = () => {
+      const shape = { ...rest };
+      if (horizontal) {
+        shape.x -= grow.start;
+        shape.width += grow.start + grow.end;
+      } else {
+        shape.y -= grow.start;
+        shape.height += grow.start + grow.end;
+      }
+      const key = `${shape.x.toFixed(1)},${shape.y.toFixed(1)},${shape.width.toFixed(1)},${shape.height.toFixed(1)},${shape.radius}`;
+      if (key === last) return;
+      last = key;
+      api.dockSetBackdrop(shape);
+    };
+    const measure = () => {
+      rest = {
+        x: root.offsetLeft + bar.offsetLeft,
+        y: root.offsetTop + bar.offsetTop,
+        width: bar.offsetWidth,
+        height: bar.offsetHeight,
+        radius: bg ? parseFloat(getComputedStyle(bg).borderTopLeftRadius) || 0 : 0,
+      };
+      send();
+    };
+    waveRef.onGrow = (start, end) => {
+      grow = { start, end };
+      send();
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    measure();
+    return () => {
+      observer.disconnect();
+      waveRef.onGrow = null;
+    };
+  });
+
+  // ---------------- clear glass: a reflection following the cursor ----------------
+  // Only a transform on a pseudo element changes (dock.css), coalesced to one per frame.
+
+  const clearGlass = $derived(settingsState.value.theme === "clear");
+  let glare = $state(false);
+
+  onMount(() => {
+    let frame = 0;
+    let x = 0;
+    let y = 0;
+    const update = () => {
+      frame = 0;
+      const bg = barEl?.querySelector<HTMLElement>(".taskbar-bg");
+      if (!bg) return;
+      const r = bg.getBoundingClientRect();
+      const over = x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+      if (over) {
+        bg.style.setProperty("--glare-x", `${(x - r.left).toFixed(1)}px`);
+        bg.style.setProperty("--glare-y", `${(y - r.top).toFixed(1)}px`);
+      }
+      if (over !== glare) glare = over;
+    };
+    const move = (e: PointerEvent) => {
+      if (!clearGlass) return;
+      x = e.clientX;
+      y = e.clientY;
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const leave = () => (glare = false);
+    const unlisten = on(Events.DockPointerLeave, leave);
+    window.addEventListener("pointermove", move);
+    document.addEventListener("mouseleave", leave);
+    return () => {
+      cancelAnimationFrame(frame);
+      unlisten.then((f) => f());
+      window.removeEventListener("pointermove", move);
+      document.removeEventListener("mouseleave", leave);
+    };
+  });
+
   function labelFor(item: DockItem): string {
     if (item.type === "App") return item.displayName;
     if (item.type === "Module") return t(`module.${item.module}` as never);
@@ -226,6 +325,7 @@
   class:vertical={!layout.horizontal}
   class:hidden={systemState.hidden}
   class:stacked={fit.overlap > 0}
+  class:glare={glare && clearGlass && !systemState.hidden}
   data-size={settings.mode === "FullWidth" ? "full-width" : "min-content"}
   data-has-margin={settings.margin > 0}
   oncontextmenu={showDockMenu}

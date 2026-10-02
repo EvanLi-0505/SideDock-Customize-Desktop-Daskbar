@@ -77,15 +77,23 @@ fn app_name(path: Option<&Path>, umid: Option<&str>) -> String {
     }
     let name = match path {
         Some(p) => shell::display_name_for(p, umid),
-        None => umid.map(|u| u.to_string()).unwrap_or_default(),
+        None => umid.map(str::to_string).unwrap_or_default(),
     };
     NAME_CACHE.lock().insert(key, name.clone());
     name
 }
 
+/// The window's AppUserModelID; packaged apps that do not tag their windows get the id
+/// of their package (found through the Start menu apps).
+fn umid_of(window: Window, path: Option<&Path>) -> Option<String> {
+    window
+        .app_user_model_id()
+        .or_else(|| path.and_then(super::start_apps::umid_for_package_path))
+}
+
 fn snapshot(window: Window, last_foreground_at: i64) -> UserAppWindow {
-    let umid = window.app_user_model_id();
     let path = window.exe_path();
+    let umid = umid_of(window, path.as_deref());
     UserAppWindow {
         hwnd: window.0,
         title: window.title(),
@@ -236,7 +244,12 @@ fn handle_event(ev: event_hook::WinEvent) -> bool {
                 return false;
             }
             let title = window.title();
-            let umid = window.app_user_model_id();
+            let path = WINDOWS
+                .read()
+                .iter()
+                .find(|w| w.hwnd == ev.hwnd)
+                .and_then(|w| w.path.clone());
+            let umid = umid_of(window, path.as_deref());
             let mut list = WINDOWS.write();
             if let Some(w) = list.iter_mut().find(|w| w.hwnd == ev.hwnd)
                 && (w.title != title || w.umid != umid)

@@ -30,6 +30,8 @@ const EMPTY_PNG: &[u8] = &[
 fn key_for(source: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     source.to_lowercase().hash(&mut hasher);
+    // icons cached at another size are ignored (and cleaned with the icon cache)
+    icons::ICON_SIZE.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -75,6 +77,27 @@ pub fn get_png(path: Option<&str>, umid: Option<&str>) -> Vec<u8> {
     EMPTY_PNG.to_vec()
 }
 
+/// Memory-only lookup: lets the protocol handler answer without leaving its thread.
+pub fn memory_hit(path: Option<&str>, umid: Option<&str>) -> Option<Vec<u8>> {
+    let memory = MEMORY.lock();
+    sources(path, umid)
+        .iter()
+        .find_map(|s| memory.get(&key_for(s)).cloned())
+}
+
+/// Loads (or extracts) the icons of these packaged / Start menu app ids in the
+/// background, so the launcher never waits for the shell while it is on screen.
+pub fn warm_up(umids: Vec<String>) {
+    for umid in umids {
+        if memory_hit(None, Some(&umid)).is_some() {
+            continue;
+        }
+        crate::utils::run_in_pool(move || {
+            get_png(None, Some(&umid));
+        });
+    }
+}
+
 pub fn clear_memory() {
     MEMORY.lock().clear();
 }
@@ -118,10 +141,19 @@ fn percent_decode(input: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// Handler for the `sdicon` URI scheme.
-pub fn handle_request(uri: &str) -> Vec<u8> {
+fn params(uri: &str) -> (Option<String>, Option<String>) {
     let query = uri.split_once('?').map(|(_, q)| q).unwrap_or("");
-    let path = query_param(query, "path");
-    let umid = query_param(query, "umid");
+    (query_param(query, "path"), query_param(query, "umid"))
+}
+
+/// Handler for the `sdicon` URI scheme (may block: call it off the UI thread).
+pub fn handle_request(uri: &str) -> Vec<u8> {
+    let (path, umid) = params(uri);
     get_png(path.as_deref(), umid.as_deref())
+}
+
+/// Non-blocking variant: only icons already in memory.
+pub fn handle_request_cached(uri: &str) -> Option<Vec<u8>> {
+    let (path, umid) = params(uri);
+    memory_hit(path.as_deref(), umid.as_deref())
 }

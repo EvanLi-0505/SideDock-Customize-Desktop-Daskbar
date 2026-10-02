@@ -39,6 +39,25 @@ export interface DockSettings {
   magnificationRange: number;
   showLabels: boolean;
   overflowMode: OverflowMode;
+  /** bar background opacity (percent) for the solid themes */
+  backgroundOpacity: number;
+}
+
+export type StartMenuMode = "Native" | "SideDock";
+
+/** Win key takeover (elevated helper started through a scheduled task). */
+export type WinKeyStatus = "off" | "needsAuthorization" | "starting" | "active" | "failed";
+
+export interface WinKeyState {
+  status: WinKeyStatus;
+  /** the "SideDock Win Key" scheduled task exists */
+  taskRegistered: boolean;
+}
+
+export interface LauncherSettings {
+  startMenu: StartMenuMode;
+  takeOverWinKey: boolean;
+  iconSize: number;
 }
 
 export interface AppSettings {
@@ -48,6 +67,7 @@ export interface AppSettings {
   autostart: boolean;
   crashRecovery: boolean;
   dock: DockSettings;
+  launcher: LauncherSettings;
   /** action id -> accelerator ("Ctrl+Alt+Backquote"), "" = disabled */
   shortcuts: Record<string, string>;
 }
@@ -231,4 +251,29 @@ declare global {
   interface Window {
     __SIDEDOCK__?: Bootstrap;
   }
+}
+
+// ---------------- overlay (launcher / switcher) ----------------
+
+/** An app of the Start menu "All apps" list (`shell:AppsFolder`). */
+export interface StartApp {
+  id: string;
+  name: string;
+  path: string | null;
+  packaged: boolean;
+}
+
+export type OverlayMode = "launcher" | "switcher";
+
+/** A live window preview drawn by DWM over the overlay page, in CSS px. */
+export interface ThumbnailRequest {
+  key: string;
+  hwnd: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** visible part from the top-left (0..1), for previews partly covered by a card */
+  visibleWidth?: number;
+  visibleHeight?: number;
 }

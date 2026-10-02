@@ -1,0 +1,401 @@
+/* Full-screen overlay: launcher + window switcher. Drawn over the system acrylic
+   backdrop (widgets/overlay.rs) with a dim layer, light text like macOS Launchpad. */
+
+html,
+body {
+  background: transparent !important;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+  color: #fff;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+:root {
+  --overlay-dim: rgb(8 10 14 / 0.34);
+  --overlay-text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  --overlay-glass: rgb(255 255 255 / 0.14);
+  --overlay-glass-hover: rgb(255 255 255 / 0.22);
+  --overlay-border: rgb(255 255 255 / 0.22);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes overlay-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ======================= launcher ======================= */
+
+.launcher {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 6vw 28px;
+  background: var(--overlay-dim);
+  animation: overlay-in 200ms var(--ease);
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(360px, 60vw);
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--overlay-glass);
+    border: 1px solid var(--overlay-border);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+    color: rgb(255 255 255 / 0.75);
+    flex-shrink: 0;
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #fff;
+      font-size: 15px;
+      caret-color: #fff;
+
+      &::placeholder {
+        color: rgb(255 255 255 / 0.6);
+      }
+    }
+  }
+
+  .grid-area {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    margin-top: 36px;
+    overflow: hidden;
+  }
+
+  /* native horizontal paging: one snap point per page, never skipped by a fling */
+  .pages {
+    display: flex;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .page {
+    flex: 0 0 100%;
+    display: grid;
+    justify-content: center;
+    align-content: start;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 6px 4px;
+    border-radius: 16px;
+    color: #fff;
+    transition:
+      background-color var(--dur-fast) ease,
+      transform var(--dur-fast) ease;
+
+    img {
+      filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.3));
+      transition: transform var(--dur) var(--ease);
+    }
+    &:hover img {
+      transform: scale(1.06);
+    }
+    &:active img {
+      transform: scale(0.94);
+    }
+    &.selected {
+      background: var(--overlay-glass);
+      box-shadow: inset 0 0 0 1px var(--overlay-border);
+    }
+
+    .name {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 500;
+      text-shadow: var(--overlay-text-shadow);
+    }
+  }
+
+  .empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    color: rgb(255 255 255 / 0.7);
+  }
+
+  .dots {
+    display: flex;
+    gap: 10px;
+    padding-top: 12px;
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgb(255 255 255 / 0.35);
+      transition: background-color var(--dur) ease;
+
+      &.active {
+        background: #fff;
+      }
+    }
+  }
+
+  .notice {
+    position: fixed;
+    bottom: 64px;
+    left: 50%;
+    translate: -50% 0;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgb(0 0 0 / 0.55);
+    font-size: 13px;
+    animation: overlay-fade 160ms ease;
+  }
+
+  .menu {
+    position: fixed;
+    min-width: 210px;
+    padding: 5px;
+    border-radius: 10px;
+    background: rgb(36 38 44 / 0.92);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+    animation: overlay-fade 120ms ease;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      text-align: left;
+
+      &:hover {
+        background: rgb(255 255 255 / 0.1);
+      }
+    }
+  }
+}
+
+/* ======================= switcher ======================= */
+
+.switcher {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-dim);
+  animation: overlay-fade 150ms ease;
+
+  /* the live previews are drawn by DWM exactly over these frames */
+  .card,
+  .main-frame,
+  .small {
+    position: absolute;
+    border-radius: 12px;
+  }
+
+  /* cards are nearly opaque: when they stack, each one clearly covers the previous */
+  .card {
+    background: rgb(52 56 64 / 0.86);
+    border: 1px solid var(--overlay-border);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+    transition:
+      background-color var(--dur-fast) ease,
+      box-shadow var(--dur-fast) ease;
+
+    &:hover {
+      background: rgb(66 70 80 / 0.9);
+    }
+    &.active {
+      box-shadow:
+        0 0 0 3px var(--accent),
+        0 10px 30px rgb(0 0 0 / 0.35);
+    }
+
+    .label {
+      position: absolute;
+      top: 6px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      text-shadow: var(--overlay-text-shadow);
+
+      img {
+        width: 20px;
+        height: 20px;
+      }
+      .text {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+      .count {
+        min-width: 20px;
+        padding: 0 6px;
+        border-radius: 10px;
+        background: rgb(255 255 255 / 0.22);
+        font-size: 11px;
+        line-height: 18px;
+      }
+    }
+  }
+
+  /* other windows of the same app, peeking out behind its card */
+  .card-ghost {
+    position: absolute;
+    border-radius: 12px;
+    background: rgb(52 56 64 / 0.6);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    pointer-events: none;
+  }
+
+  .placeholder {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgb(255 255 255 / 0.08);
+    pointer-events: none;
+
+    img {
+      width: 40%;
+      max-width: 64px;
+      aspect-ratio: 1;
+    }
+
+    &.big {
+      inset: 0;
+      gap: 12px;
+      align-content: center;
+      font-size: 14px;
+      color: rgb(255 255 255 / 0.75);
+    }
+  }
+
+  .main-frame {
+    box-shadow:
+      0 0 0 3px var(--accent),
+      0 24px 60px rgb(0 0 0 / 0.45);
+    border-radius: 6px;
+  }
+
+  .title {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-shadow: var(--overlay-text-shadow);
+
+    img {
+      width: 28px;
+      height: 28px;
+    }
+    .title-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .window-title {
+      max-width: 60vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .app-name {
+      font-size: 12px;
+      color: rgb(255 255 255 / 0.7);
+    }
+  }
+
+  .small {
+    display: grid;
+    place-items: center;
+    background: var(--overlay-glass);
+    border: 1px solid var(--overlay-border);
+
+    &:hover {
+      background: var(--overlay-glass-hover);
+    }
+    &.active {
+      box-shadow: 0 0 0 3px var(--accent);
+    }
+    img {
+      width: 40px;
+      height: 40px;
+    }
+  }
+
+  .empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  .hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 18px;
+    text-align: center;
+    font-size: 12px;
+    color: rgb(255 255 255 / 0.6);
+    pointer-events: none;
+  }
+}

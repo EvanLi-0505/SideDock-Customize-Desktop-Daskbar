@@ -16,11 +16,11 @@ use serde::Serialize;
 use tauri::AppHandle;
 use windows::Win32::{Foundation::POINT, UI::WindowsAndMessaging::GetCursorPos};
 
-use super::{DOCKS, DockState, request_layout, set_window_visible};
+use super::{DOCKS, DockState, backdrop, request_layout, set_window_visible};
 use crate::{
     app,
     modules::apps,
-    state::settings::{self, DockSide, HideMode},
+    state::settings::{self, DockSide, HideMode, ThemeMode},
     widgets::{native, popup},
     windows_api::{monitor, window::Rect, window::Window},
 };
@@ -79,11 +79,17 @@ pub fn start(app: AppHandle) {
     crate::utils::spawn_supervised("dock-pointer", move || {
         let mut pending: HashMap<String, Pending> = HashMap::new();
         let mut tick: u32 = 0;
+        let mut dark = crate::windows_api::system_colors().dark_mode;
         loop {
             std::thread::sleep(FRAME);
             tick = tick.wrapping_add(1);
 
             let docks: Vec<DockState> = DOCKS.lock().values().cloned().collect();
+            let frosted = settings::theme() == ThemeMode::Glass;
+            if frosted && tick.is_multiple_of(AUTOHIDE_EVERY * 20) {
+                dark = crate::windows_api::system_colors().dark_mode;
+            }
+            backdrop::sync(&docks, frosted, dark);
             if docks.is_empty() {
                 continue;
             }

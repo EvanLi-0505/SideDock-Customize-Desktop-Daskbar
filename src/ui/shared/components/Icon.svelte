@@ -25,6 +25,7 @@
   import Keyboard from "@lucide/svelte/icons/keyboard";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import Layers from "@lucide/svelte/icons/layers";
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
   import LogOut from "@lucide/svelte/icons/log-out";
@@ -46,6 +47,7 @@
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Search from "@lucide/svelte/icons/search";
   import Settings from "@lucide/svelte/icons/settings";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import SkipBack from "@lucide/svelte/icons/skip-back";
@@ -87,6 +89,7 @@
     Keyboard,
     LayoutDashboard,
     LayoutGrid,
+    Layers,
     Lock,
     LockOpen,
     LogOut,
@@ -108,6 +111,7 @@
     Puzzle,
     RefreshCw,
     RotateCcw,
+    Search,
     Settings,
     ShieldCheck,
     SkipBack,

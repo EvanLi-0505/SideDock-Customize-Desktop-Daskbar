@@ -83,6 +83,48 @@ pub enum DockMonitors {
     All,
 }
 
+/// Which start menu the dock's start button (and optionally the Win key) opens.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StartMenuMode {
+    /// the Windows start menu
+    Native,
+    /// SideDock's full-screen launcher
+    SideDock,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct LauncherSettings {
+    pub start_menu: StartMenuMode,
+    /// A single press of the Win key opens the SideDock launcher (only with
+    /// `StartMenuMode::SideDock`). Needs the elevated helper and its scheduled task,
+    /// see `modules/win_key.rs`; only `win_key::enable` / `disable` should turn it on.
+    pub take_over_win_key: bool,
+    /// icon size in the launcher grid (CSS px)
+    pub icon_size: u32,
+}
+
+impl Default for LauncherSettings {
+    fn default() -> Self {
+        Self {
+            start_menu: StartMenuMode::Native,
+            take_over_win_key: false,
+            icon_size: 64,
+        }
+    }
+}
+
+impl LauncherSettings {
+    fn sanitize(&mut self) {
+        self.icon_size = self.icon_size.clamp(40, 96);
+    }
+
+    /// The Win key hook is only wanted when the SideDock start menu is selected.
+    pub fn wants_win_key(&self) -> bool {
+        self.start_menu == StartMenuMode::SideDock && self.take_over_win_key
+    }
+}
+
 /// What the dock does when its items do not fit.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OverflowMode {
@@ -129,6 +171,8 @@ pub struct DockSettings {
     /// show the app name next to the magnified icon
     pub show_labels: bool,
     pub overflow_mode: OverflowMode,
+    /// bar background opacity in percent for the solid (dark / light) themes
+    pub background_opacity: u32,
 }
 
 impl Default for DockSettings {
@@ -158,6 +202,7 @@ impl Default for DockSettings {
             magnification_range: 3,
             show_labels: true,
             overflow_mode: OverflowMode::ShrinkThenStack,
+            background_opacity: 92,
         }
     }
 }
@@ -191,6 +236,7 @@ impl DockSettings {
         self.space_between_items = self.space_between_items.min(64);
         self.delay_to_show = self.delay_to_show.min(10_000);
         self.delay_to_hide = self.delay_to_hide.min(10_000);
+        self.background_opacity = self.background_opacity.min(100);
     }
 }
 
@@ -206,6 +252,7 @@ pub struct AppSettings {
     /// Relaunch SideDock automatically after an unexpected exit.
     pub crash_recovery: bool,
     pub dock: DockSettings,
+    pub launcher: LauncherSettings,
     /// action id -> accelerator ("Ctrl+Alt+Backquote"); empty string = disabled
     pub shortcuts: BTreeMap<String, String>,
 }
@@ -214,6 +261,8 @@ pub struct AppSettings {
 pub const SHORTCUT_DEFAULTS: &[(&str, &str)] = &[
     ("toggle-dock", "Ctrl+Alt+Shift+D"),
     ("open-settings", "Ctrl+Alt+Shift+S"),
+    ("open-launcher", "Alt+Shift+Space"),
+    ("window-switcher", "Alt+Backquote"),
 ];
 
 pub fn default_shortcuts() -> BTreeMap<String, String> {
@@ -232,6 +281,7 @@ impl Default for AppSettings {
             autostart: false,
             crash_recovery: true,
             dock: DockSettings::default(),
+            launcher: LauncherSettings::default(),
             shortcuts: default_shortcuts(),
         }
     }
@@ -240,6 +290,7 @@ impl Default for AppSettings {
 impl AppSettings {
     pub fn sanitize(&mut self) {
         self.dock.sanitize();
+        self.launcher.sanitize();
         if self.accent_color.len() > 64 {
             self.accent_color.clear();
         }
@@ -249,6 +300,13 @@ impl AppSettings {
         for (k, v) in defaults {
             self.shortcuts.entry(k).or_insert(v);
         }
+    }
+}
+
+impl ThemeMode {
+    /// Glass themes draw over a native backdrop (Mica / acrylic).
+    pub fn has_backdrop(self) -> bool {
+        matches!(self, Self::Glass | Self::Clear)
     }
 }
 
@@ -266,6 +324,11 @@ fn file_path() -> std::path::PathBuf {
 
 pub fn get() -> AppSettings {
     SETTINGS.read().clone()
+}
+
+/// Cheap accessor for per-frame code.
+pub fn theme() -> ThemeMode {
+    SETTINGS.read().theme
 }
 
 /// Persists `new` and returns the previous value.

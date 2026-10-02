@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, EventTarget, Manager, RunEvent};
 use crate::{
     commands,
     error::{Result, ResultLogExt},
-    modules::{apps, autostart, hotkeys, icons, system},
+    modules::{apps, autostart, hotkeys, icons, start_apps, system, win_key},
     paths, session,
     state::{
         dock_items,
@@ -47,11 +47,25 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
         tray::refresh(app);
     }
     if old.theme != new.theme {
-        if let Some(w) = app.get_webview_window(widgets::settings::LABEL) {
-            widgets::settings::apply_theme(&w);
-        }
-        if let Some(w) = app.get_webview_window(widgets::popup::LABEL) {
-            widgets::popup::apply_theme(&w);
+        let apply = |app: &AppHandle| {
+            if let Some(w) = app.get_webview_window(widgets::settings::LABEL) {
+                widgets::settings::apply_theme(&w);
+            }
+            if let Some(w) = app.get_webview_window(widgets::popup::LABEL) {
+                widgets::popup::apply_theme(&w);
+            }
+        };
+        if new.theme.has_backdrop() {
+            // the backdrop must be there before the page turns transparent
+            apply(app);
+        } else {
+            // and must stay until the page has painted its solid background, otherwise
+            // the window is see-through for a frame (visible flash)
+            let app = app.clone();
+            crate::utils::spawn_named("theme-backdrop", move || {
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                apply(&app);
+            });
         }
     }
     if old.dock != new.dock {
@@ -59,6 +73,9 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
     }
     if old.shortcuts != new.shortcuts {
         hotkeys::reload();
+    }
+    if old.launcher != new.launcher {
+        win_key::sync(app);
     }
     Ok(new)
 }
@@ -72,6 +89,8 @@ pub fn run_shortcut(app: &AppHandle, action: &str) {
             apply_settings(app, s).log_error();
         }
         "open-settings" => widgets::settings::open(app).log_error(),
+        "open-launcher" => widgets::overlay::toggle_launcher(app),
+        "window-switcher" => widgets::overlay::switcher_hotkey(app),
         other => log::warn!("no handler for shortcut action {other}"),
     }
 }
@@ -125,9 +144,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("sdicon", |_ctx, request, responder| {
-            let uri = request.uri().to_string();
-            std::thread::spawn(move || {
-                let bytes = icons::handle_request(&uri);
+            let respond = |responder: tauri::UriSchemeResponder, bytes: Vec<u8>| {
                 let response = tauri::http::Response::builder()
                     .header("Content-Type", "image/png")
                     .header("Cache-Control", "max-age=604800")
@@ -135,7 +152,15 @@ pub fn run() {
                     .body(bytes)
                     .unwrap_or_default();
                 responder.respond(response);
-            });
+            };
+            let uri = request.uri().to_string();
+            // answer known icons right away, on this thread: no cross-thread round-trip
+            // with the webview (a burst of those can stall a foreground webview)
+            if let Some(bytes) = icons::handle_request_cached(&uri) {
+                respond(responder, bytes);
+                return;
+            }
+            crate::utils::run_in_pool(move || respond(responder, icons::handle_request(&uri)));
         })
         .invoke_handler(commands::handler())
         .setup(move |app| {
@@ -166,6 +191,9 @@ pub fn run() {
             tray::create(&handle)?;
             widgets::popup::create(&handle)?;
             widgets::tooltip::create(&handle)?;
+            widgets::overlay::create(&handle)?;
+            start_apps::refresh();
+            win_key::sync(&handle);
             widgets::dock::start(handle.clone());
 
             if first_run {
@@ -190,6 +218,7 @@ pub fn run() {
             code: None, api, ..
         } => api.prevent_exit(),
         RunEvent::Exit => {
+            win_key::shutdown();
             widgets::dock::shutdown(app);
             session::end();
         }

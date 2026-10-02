@@ -16,11 +16,12 @@ src/
     tray.rs              tray icon on the native taskbar
     state/               persisted state (settings, dock items) with atomic writes
     modules/             OS watchers: app windows, system poller, autostart, icon cache
-    widgets/             webview windows: dock (+ geometry, auto-hide), popup, tooltip, settings
+    widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
+                         tooltip, overlay (launcher / window switcher), settings
     windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media...)
   ui/                    Svelte 5 frontend (Vite, multi-page)
     shared/              types mirrored from Rust, IPC, i18n, themes, components
-    apps/<widget>/       one app per webview: dock, popup, tooltip, settings
+    apps/<widget>/       one app per webview: dock, popup, tooltip, overlay, settings
   static/icons/          app icons (logo.svg is the source)
 scripts/package.mjs      portable zip packaging
 ```
@@ -37,12 +38,31 @@ scripts/package.mjs      portable zip packaging
   for magnified icons. The page reports the bar rect (`dock_set_hitbox`); the backend
   hit-tests the cursor every frame (`widgets/dock/autohide.rs`) and keeps the window
   click-through everywhere else.
+* The frosted glass theme puts a small native window right below each dock's bar
+  (`widgets/dock/backdrop.rs`): a webview cannot blur what is behind its window. It draws
+  the system's blurred host backdrop through Windows.UI.Composition, clipped to the bar's
+  rounded rectangle. The page reports the bar shape (`dock_set_backdrop`), the backend
+  loop keeps the window in place.
 * Auto-hide runs in the same backend loop so it keeps working while a webview is
   throttled. A hidden dock slides its content out and becomes click-through.
 * Overflow (`ui/apps/dock/fit.ts`) and magnification (`ui/apps/dock/wave.ts`) only write
   CSS variables and transforms, so the page never re-layouts per animation frame.
 * Global shortcuts (`modules/hotkeys.rs`) use `RegisterHotKey` on a dedicated
-  message-loop thread; no keyboard hook is installed.
+  message-loop thread. The only keyboard hook is the optional Win key takeover: it runs
+  in an elevated helper process (`SideDock.exe --win-key-helper`,
+  `modules/win_key_helper.rs`) started through the on-demand scheduled task
+  "SideDock Win Key", because a non-elevated process cannot keep the Windows 11 start
+  menu closed. `modules/win_key.rs` registers / removes the task (one UAC prompt,
+  `--win-key-register` / `--win-key-unregister`), starts the helper while the option is
+  on and receives its messages on a message-only window. The helper exits with SideDock.
+* The overlay (`widgets/overlay.rs`) is one full-screen window shared by the launcher and
+  the window switcher, created hidden at startup and moved to the cursor's monitor on
+  each opening. Launcher apps come from `shell:AppsFolder` (`modules/start_apps.rs`);
+  their icons are extracted in the background after each scan so the launcher only ever
+  reads the icon cache. Switcher previews are DWM thumbnails placed from rects computed
+  by the page.
+* Icons (`sdicon://`) already in memory are answered synchronously; the others are
+  extracted by a small MTA worker pool (`utils::run_in_pool`).
 * Popups (context menus, window list, calendar, keyboard, bluetooth, power) share one
   reusable window. The requesting widget sends JSON describing the popup; actions are sent
   back to it with `popup-action`.

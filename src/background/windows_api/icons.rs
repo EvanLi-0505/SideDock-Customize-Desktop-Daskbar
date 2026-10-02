@@ -16,7 +16,8 @@ use windows::{
 use super::ComGuard;
 use crate::error::Result;
 
-pub const ICON_SIZE: i32 = 64;
+/// Large enough for magnified dock icons and the launcher grid on high-DPI screens.
+pub const ICON_SIZE: i32 = 128;
 
 /// Returns PNG encoded bytes of the icon for a parsing name (path or shell uri).
 pub fn extract_png(parsing_name: &str) -> Result<Vec<u8>> {

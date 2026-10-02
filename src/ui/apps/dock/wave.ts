@@ -88,6 +88,8 @@ export class DockWave {
   private labelHidden = false;
   private lastPointer = "";
   private growKey = "";
+  /** the bar background grew past the items (fit-content mode), in CSS px */
+  onGrow: ((start: number, end: number) => void) | null = null;
   private labelPos = "";
   private labelShown = false;
   private geometry: Geometry | null = null;
@@ -208,6 +210,7 @@ export class DockWave {
     }
     this.bar.style.removeProperty("--grow-start");
     this.bar.style.removeProperty("--grow-end");
+    this.onGrow?.(0, 0);
   }
 
   private items(): HTMLElement[] {
@@ -318,14 +321,17 @@ export class DockWave {
     });
 
     const grow = 1 - anchor;
-    const growStart = `${Math.max(0, -s0 * grow).toFixed(1)}px`;
-    const growEnd = `${Math.max(0, s1 * grow).toFixed(1)}px`;
+    const start = Math.max(0, -s0 * grow);
+    const end = Math.max(0, s1 * grow);
+    const growStart = `${start.toFixed(1)}px`;
+    const growEnd = `${end.toFixed(1)}px`;
     const growKey = growStart + growEnd;
     if (growKey !== this.growKey) {
       // custom properties invalidate the whole subtree: only write real changes
       this.growKey = growKey;
       this.bar.style.setProperty("--grow-start", growStart);
       this.bar.style.setProperty("--grow-end", growEnd);
+      this.onGrow?.(start, end);
     }
 
     this.placeLabel(geo, nearest);

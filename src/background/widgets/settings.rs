@@ -8,6 +8,7 @@ use super::WidgetWindow;
 use crate::{
     error::{Result, ResultLogExt},
     state::settings,
+    windows_api::monitor,
 };
 
 pub const LABEL: &str = "settings";
@@ -35,7 +36,29 @@ pub fn open(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Preferred / minimum logical size, shrunk to fit small or low-resolution screens
+/// (e.g. 1920x1080 at 150% leaves only ~1280x670 logical px of work area).
+fn window_sizes() -> ((f64, f64), (f64, f64)) {
+    const PREFERRED: (f64, f64) = (1160.0, 780.0);
+    const MIN: (f64, f64) = (880.0, 600.0);
+    let monitors = monitor::list();
+    let target = {
+        let mut p = windows::Win32::Foundation::POINT::default();
+        let _ = unsafe { windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut p) };
+        monitor::from_point(p.x, p.y)
+    }
+    .or_else(|| monitors.into_iter().find(|m| m.is_primary));
+    let Some(m) = target else {
+        return (PREFERRED, MIN);
+    };
+    let avail_w = m.work_area.width() as f64 / m.scale_factor * 0.94;
+    let avail_h = m.work_area.height() as f64 / m.scale_factor * 0.94;
+    let size = (PREFERRED.0.min(avail_w), PREFERRED.1.min(avail_h));
+    (size, (MIN.0.min(size.0), MIN.1.min(size.1)))
+}
+
 fn create(app: &AppHandle) -> Result<()> {
+    let ((width, height), (min_width, min_height)) = window_sizes();
     let window = WidgetWindow {
         label: LABEL,
         widget: "settings",
@@ -47,8 +70,8 @@ fn create(app: &AppHandle) -> Result<()> {
     .decorations(false)
     .shadow(true)
     .resizable(true)
-    .min_inner_size(880.0, 600.0)
-    .inner_size(1160.0, 780.0)
+    .min_inner_size(min_width, min_height)
+    .inner_size(width, height)
     .center()
     .build()?;
     apply_theme(&window);

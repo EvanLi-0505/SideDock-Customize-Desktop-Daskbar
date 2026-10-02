@@ -63,3 +63,51 @@ pub fn throttle(key: &str, window: Duration) -> bool {
         }
     }
 }
+
+type Job = Box<dyn FnOnce() + Send + 'static>;
+
+/// Small fixed pool for blocking shell work (icon extraction): a burst of requests
+/// (the launcher shows hundreds of icons) must not start hundreds of threads.
+///
+/// Workers live in the COM multithreaded apartment: they have no message loop, and some
+/// shell objects (packaged apps) call back into the caller's apartment, which would
+/// block an STA thread that does not pump messages forever.
+pub fn run_in_pool(job: impl FnOnce() + Send + 'static) {
+    use std::sync::{
+        LazyLock, Mutex,
+        mpsc::{Sender, channel},
+    };
+    const WORKERS: usize = 4;
+    static POOL: LazyLock<Mutex<Sender<Job>>> = LazyLock::new(|| {
+        let (tx, rx) = channel::<Job>();
+        let rx = std::sync::Arc::new(Mutex::new(rx));
+        for i in 0..WORKERS {
+            let rx = rx.clone();
+            spawn_named(&format!("pool-{i}"), move || {
+                unsafe {
+                    let _ = windows::Win32::System::Com::CoInitializeEx(
+                        None,
+                        windows::Win32::System::Com::COINIT_MULTITHREADED,
+                    );
+                }
+                loop {
+                    let job = match rx.lock() {
+                        Ok(guard) => guard.recv(),
+                        Err(_) => return,
+                    };
+                    match job {
+                        // a panicking job must not kill the worker
+                        Ok(job) => {
+                            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job));
+                        }
+                        Err(_) => return,
+                    }
+                }
+            });
+        }
+        Mutex::new(tx)
+    });
+    if let Ok(tx) = POOL.lock() {
+        let _ = tx.send(Box::new(job));
+    }
+}

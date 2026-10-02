@@ -31,12 +31,13 @@ export const layout = {
 export function applyLayoutVariables(): void {
   $effect.root(() => {
     $effect(() => {
-      const { size, padding, margin, spaceBetweenItems } = layout.settings;
+      const { size, padding, margin, spaceBetweenItems, backgroundOpacity } = layout.settings;
       const root = document.documentElement.style;
       root.setProperty("--config-margin", `${margin}px`);
       root.setProperty("--config-padding", `${padding}px`);
       root.setProperty("--config-item-size", `${size}px`);
       root.setProperty("--config-space-between-items", `${spaceBetweenItems}px`);
+      root.setProperty("--dock-alpha", `${backgroundOpacity / 100}`);
     });
   });
 }

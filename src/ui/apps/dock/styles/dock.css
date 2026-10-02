@@ -12,8 +12,12 @@
   --item: var(--item-size, var(--config-item-size));
   --item-inner-spacing: calc(var(--item) * 0.15);
   --item-border-radius: calc(var(--item) * 0.25);
-  --item-size-medium: calc(var(--item) * 2 + var(--config-space-between-items));
   --item-size-large: calc(var(--item) * 3 + var(--config-space-between-items) * 2);
+}
+
+/* the frosted glass blur window (widgets/dock/backdrop.rs) follows this radius */
+:root {
+  --bar-radius: 16px;
 }
 
 html,
@@ -92,10 +96,10 @@ body {
 
   &[data-has-margin="true"],
   &[data-size="min-content"] {
-    border-radius: 16px;
+    border-radius: var(--bar-radius);
     .taskbar-bg,
     .weg-items-container {
-      border-radius: 16px;
+      border-radius: var(--bar-radius);
     }
   }
 
@@ -293,14 +297,20 @@ body.dragging * {
     opacity: 1;
   }
 
+  /* --dock-separator (theme.css): solid line; glass themes add a light edge next to it
+     (an etched groove) so it reads on both dark and bright wallpapers */
   .vertical & {
-    width: var(--config-item-size);
-    border-top: 1px solid color-mix(in srgb, var(--fg-muted) 55%, transparent);
+    width: calc(var(--item) * 0.8);
+    border-top: 1.5px solid var(--dock-separator);
+    box-shadow: 0 var(--dock-separator-edge-size, 1px) 0 var(--dock-separator-edge, transparent);
+    border-radius: 1px;
     height: 0;
   }
   .horizontal & {
-    height: var(--config-item-size);
-    border-left: 1px solid color-mix(in srgb, var(--fg-muted) 55%, transparent);
+    height: calc(var(--item) * 0.8);
+    border-left: 1.5px solid var(--dock-separator);
+    box-shadow: var(--dock-separator-edge-size, 1px) 0 0 var(--dock-separator-edge, transparent);
+    border-radius: 1px;
     width: 0;
   }
   /* larger hit area for the context menu */
@@ -427,14 +437,6 @@ body.dragging * {
     transform: scale(0.94);
   }
 
-  &.weg-item-medium {
-    .horizontal & {
-      width: var(--item-size-medium);
-    }
-    .vertical & {
-      height: var(--item-size-medium);
-    }
-  }
   &.weg-item-large {
     .horizontal & {
       width: var(--item-size-large);
@@ -615,5 +617,83 @@ body.dragging * {
         cursor: default;
       }
     }
+  }
+}
+
+/* ============ clear glass: a transparent pane with glass optics ============
+   No blur (that is the frosted theme): what makes it read as glass is how the pane
+   catches light - a lit rim, thickness glowing along the edges, a diagonal sheen and a
+   soft reflection that follows the cursor (.glare, set by Dock.svelte). */
+
+:root[data-theme="clear"] {
+  --glass-rim: rgb(255 255 255 / 0.7);
+  --glass-rim-far: rgb(255 255 255 / 0.16);
+  --glass-edge: rgb(255 255 255 / 0.14);
+  --glass-sheen: rgb(255 255 255 / 0.2);
+  --glass-fill: rgb(255 255 255 / 0.04);
+  --glass-glare: rgb(255 255 255 / 0.32);
+}
+:root[data-theme="clear"][data-scheme="dark"] {
+  --glass-rim: rgb(255 255 255 / 0.42);
+  --glass-rim-far: rgb(255 255 255 / 0.08);
+  --glass-edge: rgb(255 255 255 / 0.08);
+  --glass-sheen: rgb(255 255 255 / 0.12);
+  --glass-fill: rgb(255 255 255 / 0.02);
+  --glass-glare: rgb(255 255 255 / 0.2);
+}
+
+:root[data-theme="clear"] {
+  .taskbar .taskbar-bg {
+    overflow: hidden;
+    background:
+      linear-gradient(
+        135deg,
+        var(--glass-sheen) 0%,
+        transparent 34%,
+        transparent 80%,
+        color-mix(in srgb, var(--glass-sheen) 45%, transparent) 100%
+      ),
+      var(--glass-fill);
+    border: 1px solid color-mix(in srgb, var(--glass-rim) 45%, transparent);
+    box-shadow:
+      inset 1px 1px 0 var(--glass-rim),
+      inset -1px -1px 0 var(--glass-rim-far),
+      inset 0 0 14px var(--glass-edge),
+      0 0 0 0.5px rgb(0 0 0 / 0.22),
+      0 10px 28px rgb(0 0 0 / 0.14);
+
+    /* the reflection of a light: a soft spot that follows the cursor */
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 180px;
+      height: 180px;
+      margin: -90px 0 0 -90px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        var(--glass-glare) 0%,
+        color-mix(in srgb, var(--glass-glare) 30%, transparent) 35%,
+        transparent 70%
+      );
+      transform: translate3d(var(--glare-x, -999px), var(--glare-y, -999px), 0);
+      opacity: 0;
+      transition: opacity 0.3s var(--ease);
+      will-change: transform;
+      pointer-events: none;
+    }
+  }
+  .taskbar.glare .taskbar-bg::after {
+    opacity: 1;
+  }
+
+  /* icon tiles are small glass chips */
+  .weg-item {
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim),
+      inset 0 0 0 1px color-mix(in srgb, var(--glass-rim) 25%, transparent),
+      0 2px 8px rgb(0 0 0 / 0.12);
   }
 }

@@ -148,6 +148,6 @@ pub fn clear() -> usize {
     if let Some((_, file)) = guard.as_mut() {
         let _ = file.set_len(0);
     }
-    let keep: Vec<&std::path::Path> = current.iter().map(|p| p.as_path()).collect();
+    let keep: Vec<&std::path::Path> = current.iter().map(PathBuf::as_path).collect();
     crate::paths::clear_dir(&logger.dir, &keep)
 }

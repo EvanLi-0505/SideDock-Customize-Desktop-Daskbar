@@ -14,6 +14,7 @@
 //! ([`request`]) so concurrent events can never race each other.
 
 pub mod autohide;
+pub mod backdrop;
 pub mod native_taskbar;
 
 use std::{
@@ -68,6 +69,8 @@ pub struct DockState {
     pub hwnd: isize,
     pub scale: f64,
     pub hitbox: Option<Hitbox>,
+    /// bar shape for the frosted glass backdrop (only reported with that theme)
+    pub backdrop: Option<backdrop::BackdropShape>,
     /// false while the window is click-through
     pub interactive: bool,
     pub ready: bool,
@@ -84,7 +87,7 @@ pub struct DockState {
 }
 
 impl DockState {
-    fn to_physical(&self, x: f64, y: f64, w: f64, h: f64) -> Rect {
+    pub(super) fn to_physical(&self, x: f64, y: f64, w: f64, h: f64) -> Rect {
         let s = self.scale;
         Rect {
             left: self.window.left + (x * s).round() as i32,
@@ -253,18 +256,14 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
     let wanted: HashSet<String> = targets.iter().map(label_for).collect();
 
     // remove docks that are no longer wanted
-    let stale: Vec<DockState> = {
-        let mut docks = DOCKS.lock();
-        let stale_labels: Vec<String> = docks
-            .keys()
-            .filter(|l| !wanted.contains(*l))
-            .cloned()
-            .collect();
-        stale_labels
-            .into_iter()
-            .filter_map(|l| docks.remove(&l))
-            .collect()
-    };
+    let mut stale: Vec<DockState> = Vec::new();
+    DOCKS.lock().retain(|label, dock| {
+        let keep = wanted.contains(label);
+        if !keep {
+            stale.push(dock.clone());
+        }
+        keep
+    });
     for dock in stale {
         app_bar::unregister(dock.hwnd);
         if let Some(window) = app.get_webview_window(&dock.label) {
@@ -308,6 +307,7 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
                 hwnd: hwnd_of(&window)?,
                 scale: monitor.scale_factor,
                 hitbox: None,
+                backdrop: None,
                 interactive: true,
                 ready: false,
                 shown: false,
@@ -495,6 +495,12 @@ pub fn set_hitbox(label: &str, hitbox: Hitbox) {
     }
 }
 
+pub fn set_backdrop(label: &str, shape: Option<backdrop::BackdropShape>) {
+    if let Some(dock) = DOCKS.lock().get_mut(label) {
+        dock.backdrop = shape;
+    }
+}
+
 pub fn set_dragging(label: &str, dragging: bool) {
     if let Some(dock) = DOCKS.lock().get_mut(label) {
         dock.dragging = dragging;
@@ -513,6 +519,7 @@ pub(super) fn set_window_visible(hwnd: isize, visible: bool) {
 /// Removes every dock and its AppBar reservation (used on exit).
 pub fn shutdown(app: &AppHandle) {
     let docks: Vec<DockState> = DOCKS.lock().drain().map(|(_, d)| d).collect();
+    backdrop::shutdown();
     for dock in docks {
         app_bar::unregister(dock.hwnd);
         if let Some(window) = app.get_webview_window(&dock.label) {

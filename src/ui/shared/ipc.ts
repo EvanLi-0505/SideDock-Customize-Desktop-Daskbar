@@ -13,10 +13,13 @@ import type {
   FocusedApp,
   Placement,
   ShortcutStatus,
+  StartApp,
   StorageUsage,
   SystemColors,
   SystemState,
+  ThumbnailRequest,
   UserAppWindow,
+  WinKeyState,
 } from "./types.ts";
 
 export const Events = {
@@ -33,6 +36,11 @@ export const Events = {
   PopupClosed: "popup-closed",
   PopupAction: "popup-action",
   TooltipRender: "tooltip-render",
+  StartAppsChanged: "start-apps-changed",
+  OverlayShow: "overlay-show",
+  OverlayHidden: "overlay-hidden",
+  SwitcherStep: "switcher-step",
+  WinKeyStatus: "win-key-status-changed",
 } as const;
 
 export function on<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
@@ -55,6 +63,7 @@ export const api = {
   resetDockItems: () => invoke<DockItems>("reset_dock_items"),
   pinPaths: (paths: string[]) => invoke<number>("dock_pin_paths", { paths }),
   importTaskbarPins: () => invoke<number>("dock_import_taskbar_pins"),
+  pinStartApp: (id: string) => invoke<number>("dock_pin_start_app", { id }),
 
   // dock widget
   dockReady: () => fire(invoke("dock_ready")),
@@ -67,6 +76,10 @@ export const api = {
     inward: number;
     along: number;
   }) => fire(invoke("dock_set_hitbox", { hitbox })),
+  /** bar shape for the frosted glass backdrop window, null = none */
+  dockSetBackdrop: (
+    shape: { x: number; y: number; width: number; height: number; radius: number } | null,
+  ) => fire(invoke("dock_set_backdrop", { shape })),
   dockSetDragging: (dragging: boolean) => fire(invoke("dock_set_dragging", { dragging })),
 
   // windows
@@ -118,6 +131,22 @@ export const api = {
   /** moves the visible tooltip without re-rendering it (dock magnification label) */
   tooltipFollow: (anchor: AnchorRect, placement: Placement) =>
     fire(invoke("tooltip_follow", { anchor, placement })),
+
+  // Win key takeover: turning it on asks for administrator rights once (UAC)
+  winKeyState: () => invoke<WinKeyState>("win_key_state"),
+  winKeySetEnabled: (enabled: boolean) => invoke<WinKeyState>("win_key_set_enabled", { enabled }),
+
+  // overlay: launcher & window switcher
+  getStartApps: () => invoke<StartApp[]>("get_start_apps"),
+  overlayReady: (token: number) => fire(invoke("overlay_ready", { token })),
+  overlayHide: () => fire(invoke("overlay_hide")),
+  overlayToggleLauncher: () => fire(invoke("overlay_toggle_launcher")),
+  overlayLaunch: (id: string, elevated = false) =>
+    fire(invoke("overlay_launch", { id, elevated })),
+  overlaySetThumbnails: (thumbnails: ThumbnailRequest[]) =>
+    fire(invoke("overlay_set_thumbnails", { thumbnails })),
+  switcherSelect: (hwnd: number) => fire(invoke("overlay_switcher_select", { hwnd })),
+  activateWindow: (hwnd: number) => fire(invoke("overlay_activate_window", { hwnd })),
 
   // app
   openSettings: () => fire(invoke("open_settings")),

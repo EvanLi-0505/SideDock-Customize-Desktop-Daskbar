@@ -8,6 +8,7 @@
   import SettingsRow from "../components/SettingsRow.svelte";
   import StorageCards from "../components/StorageCards.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
+  import Slider from "@shared/components/Slider.svelte";
   import { editor } from "../state/editor.svelte.ts";
   import type { PageProps } from "../pages.ts";
   import logo from "../../../../static/icons/logo.svg";
@@ -18,6 +19,7 @@
   api.getAppInfo().then((i) => (info = i));
 
   const dock = $derived(editor.value.dock);
+  const glassTheme = $derived(editor.value.theme === "glass" || editor.value.theme === "clear");
   const sides: { value: DockSide; icon: string }[] = [
     { value: "Left", icon: "PanelLeft" },
     { value: "Right", icon: "PanelRight" },
@@ -55,6 +57,20 @@
   <section class="card">
     <h3 class="card-title">{t("home.theme")}</h3>
     <ThemePicker />
+    {#if !glassTheme}
+      <div class="opacity-row">
+        <SettingsRow label={t("home.dockOpacity")} hint={t("home.dockOpacityHint")}>
+          <Slider
+            value={dock.backgroundOpacity}
+            min={0}
+            max={100}
+            step={1}
+            format={(v) => `${v}%`}
+            onchange={(v) => editor.update((s) => (s.dock.backgroundOpacity = v))}
+          />
+        </SettingsRow>
+      </div>
+    {/if}
   </section>
 
   <section class="card">
@@ -101,6 +117,12 @@
 </div>
 
 <style>
+  .opacity-row {
+    margin-top: 14px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
   .hero {
     display: flex;
     align-items: center;

@@ -13,16 +13,17 @@ use crate::{
     app,
     error::{AppError, Result},
     logger,
-    modules::{apps, hotkeys, icons, system},
+    modules::{apps, hotkeys, icons, start_apps, system, win_key},
     paths, session,
     state::{
         dock_items::{self, DockItem, DockItems},
-        settings::{self, AppSettings, DockSettings},
+        settings::{self, AppSettings, DockSettings, StartMenuMode},
     },
     utils::throttle,
     widgets::{
         self,
         dock::{self, DockInfo, native_taskbar},
+        overlay,
         popup::{self, ActionPayload, AnchorRect, Placement, PopupRequest},
         tooltip,
     },
@@ -40,10 +41,24 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         reset_dock_items,
         dock_pin_paths,
         dock_import_taskbar_pins,
+        dock_pin_start_app,
+        // Win key takeover
+        win_key_state,
+        win_key_set_enabled,
+        // overlay
+        get_start_apps,
+        overlay_ready,
+        overlay_hide,
+        overlay_toggle_launcher,
+        overlay_launch,
+        overlay_set_thumbnails,
+        overlay_switcher_select,
+        overlay_activate_window,
         // dock widget
         dock_ready,
         dock_get_info,
         dock_set_hitbox,
+        dock_set_backdrop,
         dock_set_dragging,
         // windows
         get_windows,
@@ -174,12 +189,105 @@ async fn dock_pin_paths(paths: Vec<PathBuf>) -> Result<usize> {
     pin_items(items)
 }
 
+/// Pins an app of the launcher (Start menu app) to the dock.
+#[tauri::command]
+async fn dock_pin_start_app(id: String) -> Result<usize> {
+    let entry = start_apps::list()
+        .into_iter()
+        .find(|a| a.id == id)
+        .ok_or("unknown app")?;
+    // classic programs registered under an AppUserModelID keep it for window grouping
+    let umid = if entry.packaged || !(id.starts_with('{') || id.contains('\\')) {
+        Some(id)
+    } else {
+        entry.path.as_deref().and_then(shell::file_umid)
+    };
+    let item = dock_items::AppItem {
+        id: uuid::Uuid::new_v4().to_string(),
+        display_name: entry.name,
+        path: entry.path.unwrap_or_default(),
+        umid,
+        pinned: true,
+        prevent_pinning: false,
+        relaunch: None,
+    };
+    pin_items(vec![item])
+}
+
 #[tauri::command]
 async fn dock_import_taskbar_pins() -> Result<usize> {
     let items = native_taskbar::pinned_apps()?;
     let count = pin_items(items)?;
     log::info!("imported {count} pinned items from the Windows taskbar");
     Ok(count)
+}
+
+// ======================= Win key takeover =======================
+
+#[tauri::command]
+async fn win_key_state() -> win_key::WinKeyState {
+    win_key::state()
+}
+
+/// Turns the takeover on (one UAC prompt to register the scheduled task) or off (stops
+/// the helper and removes the task).
+#[tauri::command]
+async fn win_key_set_enabled(app: AppHandle, enabled: bool) -> Result<win_key::WinKeyState> {
+    if enabled {
+        win_key::enable(&app)
+    } else {
+        win_key::disable(&app)
+    }
+}
+
+// ======================= overlay (launcher / switcher) =======================
+
+#[tauri::command]
+async fn get_start_apps() -> Vec<start_apps::StartApp> {
+    start_apps::refresh();
+    start_apps::list()
+}
+
+#[tauri::command]
+async fn overlay_ready(app: AppHandle, token: u64) -> Result<()> {
+    overlay::ready(&app, token)
+}
+
+#[tauri::command]
+async fn overlay_hide(app: AppHandle) {
+    overlay::hide(&app);
+}
+
+#[tauri::command]
+async fn overlay_toggle_launcher(app: AppHandle) {
+    overlay::toggle_launcher(&app);
+}
+
+#[tauri::command]
+async fn overlay_launch(app: AppHandle, id: String, elevated: bool) -> Result<()> {
+    if !throttle(&format!("launch:{id}"), Duration::from_millis(800)) {
+        return Ok(());
+    }
+    log::info!("launcher: start {id} (elevated: {elevated})");
+    overlay::launch(&app, &id, elevated)
+}
+
+#[tauri::command]
+async fn overlay_set_thumbnails(
+    app: AppHandle,
+    thumbnails: Vec<overlay::ThumbnailRequest>,
+) -> Result<()> {
+    overlay::set_thumbnails(&app, thumbnails)
+}
+
+#[tauri::command]
+async fn overlay_switcher_select(hwnd: isize) {
+    overlay::switcher_select(hwnd);
+}
+
+#[tauri::command]
+async fn overlay_activate_window(app: AppHandle, hwnd: isize) -> Result<()> {
+    overlay::activate_window(&app, hwnd)
 }
 
 // ======================= dock widget =======================
@@ -197,6 +305,11 @@ async fn dock_get_info(window: WebviewWindow) -> Option<DockInfo> {
 #[tauri::command]
 async fn dock_set_hitbox(window: WebviewWindow, hitbox: dock::Hitbox) {
     dock::set_hitbox(window.label(), hitbox);
+}
+
+#[tauri::command]
+async fn dock_set_backdrop(window: WebviewWindow, shape: Option<dock::backdrop::BackdropShape>) {
+    dock::set_backdrop(window.label(), shape);
 }
 
 #[tauri::command]
@@ -272,12 +385,18 @@ async fn reveal_path(path: PathBuf) -> Result<()> {
 }
 
 #[tauri::command]
-async fn shell_action(action: String) -> Result<()> {
+async fn shell_action(app: AppHandle, action: String) -> Result<()> {
     if !throttle(&format!("shell:{action}"), Duration::from_millis(300)) {
         return Ok(());
     }
     match action.as_str() {
-        "start-menu" => shell::toggle_start_menu(),
+        "start-menu" => {
+            if settings::get().launcher.start_menu == StartMenuMode::SideDock {
+                overlay::toggle_launcher(&app);
+            } else {
+                shell::toggle_start_menu();
+            }
+        }
         "show-desktop" => shell::toggle_desktop(),
         "task-manager" => shell::launch("taskmgr.exe", None, None, false)?,
         "recycle-bin" => shell::launch("shell:RecycleBinFolder", None, None, false)?,

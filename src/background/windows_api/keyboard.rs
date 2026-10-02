@@ -85,7 +85,7 @@ fn short_label(locale: &str) -> String {
 }
 
 pub fn active_layout_for(window: Option<Window>) -> isize {
-    let thread = window.map(|w| w.thread_id()).unwrap_or(0);
+    let thread = window.map_or(0, Window::thread_id);
     unsafe { GetKeyboardLayout(thread).0 as isize }
 }
 

@@ -72,6 +72,18 @@ fn main() {
         return;
     }
 
+    // Win key takeover (modules/win_key.rs): elevated helper and task (un)registration
+    if args.iter().any(|a| a == modules::win_key::HELPER_ARG) {
+        modules::win_key_helper::helper_main();
+        return;
+    }
+    if let Some(user) = arg_value(&args, modules::win_key::REGISTER_ARG) {
+        std::process::exit(modules::win_key::register_main(user));
+    }
+    if args.iter().any(|a| a == modules::win_key::UNREGISTER_ARG) {
+        std::process::exit(modules::win_key::unregister_main());
+    }
+
     if let Some(pid) = arg_value(&args, WAIT_FOR_ARG).and_then(|p| p.parse().ok()) {
         wait_for_process(pid, Duration::from_secs(15));
     }

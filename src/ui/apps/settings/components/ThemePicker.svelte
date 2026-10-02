@@ -121,11 +121,17 @@
     background: rgb(255 255 255 / 0.55);
     border: 1px solid rgb(255 255 255 / 0.8);
   }
+  /* a clear pane: almost no fill, lit rim, sheen */
   .preview-clear .preview-dock,
   .preview-clear .preview-window {
-    background: rgb(255 255 255 / 0.22);
-    border: 1px solid rgb(255 255 255 / 0.85);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+    background:
+      linear-gradient(135deg, rgb(255 255 255 / 0.45), transparent 40%),
+      rgb(255 255 255 / 0.06);
+    border: 1px solid rgb(255 255 255 / 0.45);
+    box-shadow:
+      inset 1px 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 0 8px rgb(255 255 255 / 0.3),
+      0 0 0 0.5px rgb(0 0 0 / 0.15);
   }
   .preview-dark .preview-dock,
   .preview-dark .preview-window {

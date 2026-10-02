@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.2.0 - 2026-09-30
+
+### Launcher (SideDock start menu)
+
+- New full-screen launcher inspired by macOS Launchpad: every app of the Start menu
+  (classic programs and Store apps), paged grid, search by name, pinyin or initials
+  ("wx" finds 微信), arrow keys / Enter / Esc, page dots, PageUp / PageDown.
+- Paging built on native scrolling with one snap point per page: a touchpad swipe (either
+  direction) turns exactly one page whatever its momentum, each mouse wheel notch turns
+  one page.
+- Opens reliably in the foreground (escalating activation like Seelen UI), so keyboard
+  and wheel always reach it.
+- Right-click an app: open, run as administrator, pin to the dock, open file location.
+- Settings > "Start & switcher": the dock's start button opens the Windows start menu or
+  the launcher. Launcher icon size.
+- Optional: a single press of the Win key opens the launcher instead of the Windows
+  start menu; Win + other keys (Win+E, Win+Shift+S, Win+L...) keep working. Windows 11
+  only lets an elevated process keep its start menu closed, so the keyboard hook runs in
+  a tiny administrator helper (same technique as Seelen UI's `win-hotkeys`). Turning the
+  option on asks for administrator rights once and registers the scheduled task
+  "SideDock Win Key" (no trigger, runs only while SideDock runs); turning it off removes
+  the task. Everything else stays non-elevated.
+- Shortcut `Alt+Shift+Space` (customizable).
+
+### Window switcher (stage manager)
+
+- `` Alt+` `` (customizable): live previews of every window, the selected one large in the
+  center with the other windows of the same app below it, apps grouped on the left.
+- Tap the shortcut: the switcher stays open, pick a window with the mouse (or Tab /
+  arrows / Enter). Hold Alt and press the key repeatedly: cycle, release to switch.
+  No keyboard hook is used for this.
+- Many windows stack like the dock's icons: app cards on the left overlap (the selected
+  one stays whole), apps with several windows show cards peeking out behind them, and
+  the row of an app's windows overlaps too.
+- Mouse wheel / touchpad: over the stage it steps through the windows of the selected
+  app, over the app cards it steps through the apps (one step per notch or swipe).
+
+### Themes
+
+- Frosted glass dock now uses a real system blur under the bar (Windows.UI.Composition,
+  same rounded corners as the bar), with a darker, less milky tint. The blur follows the
+  bar when the magnification wave grows it and hides with the dock. Windows 10 falls back
+  to the acrylic accent.
+- Clear glass is now a transparent pane with glass optics instead of a lighter tint: a lit
+  rim, glowing edges, a diagonal sheen and a soft reflection that follows the cursor.
+- New "Dock opacity" slider under the theme cards for the dark, light and system themes.
+
+### Dock
+
+- Separators are clearly visible in every theme: white on dark, black on light, an etched
+  line on frosted glass and a black + white pair on clear glass.
+- Sharper icons (extracted at 128 px), including magnified dock icons.
+- Store apps that do not tag their windows (e.g. Claude) get their icon and are grouped
+  with their pinned item.
+
+### Fixes
+
+- Switching from a glass theme to a solid one no longer flashes the settings window.
+- The settings window shrinks to fit small or high-scaling screens (e.g. 1920x1080 at
+  150%) instead of opening taller than the screen.
+
 ## 1.1.0 - 2026-09-27
 
 ### Dock

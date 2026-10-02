@@ -9,6 +9,7 @@
 //! shown natively and strips `WS_EX_TOOLWINDOW`. Never mix the two on those windows.
 
 pub mod dock;
+pub mod overlay;
 pub mod popup;
 pub mod settings;
 pub mod tooltip;
