@@ -1,18 +1,18 @@
 {
   "name": "sidedock",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "A portable side dock for Windows that coexists with the native taskbar. Based on Seelen UI's dock.",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "cargo build -p sidedock-tray-hook && tauri dev",
     "dev:ui": "vite",
     "build:ui": "vite build",
-    "build": "tauri build --no-bundle && node scripts/package.mjs",
+    "build": "cargo build --release -p sidedock-tray-hook && tauri build --no-bundle && node scripts/package.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.json && cargo check",
     "check:ui": "svelte-check --tsconfig ./tsconfig.json",
-    "lint:rs": "cargo clippy -- -D warnings",
+    "lint:rs": "cargo clippy -p sidedock -- -D warnings && cargo clippy -p sidedock-tray-hook -- -D warnings",
     "fmt:rs": "cargo fmt",
     "tauri": "tauri"
   },

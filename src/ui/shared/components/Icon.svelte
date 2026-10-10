@@ -1,5 +1,14 @@
 <script lang="ts" module>
   // per-icon imports keep builds fast (the barrel file compiles ~1900 icons)
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronUp from "@lucide/svelte/icons/chevron-up";
+  import Eye from "@lucide/svelte/icons/eye";
+  import EyeOff from "@lucide/svelte/icons/eye-off";
+  import Folder from "@lucide/svelte/icons/folder";
+  import FolderPlus from "@lucide/svelte/icons/folder-plus";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import Battery from "@lucide/svelte/icons/battery";
   import BatteryCharging from "@lucide/svelte/icons/battery-charging";
   import BatteryFull from "@lucide/svelte/icons/battery-full";
@@ -58,6 +67,7 @@
   import SeparatorVertical from "@lucide/svelte/icons/separator-vertical";
   import Sun from "@lucide/svelte/icons/sun";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Volume2 from "@lucide/svelte/icons/volume-2";
   import Wifi from "@lucide/svelte/icons/wifi";
   import X from "@lucide/svelte/icons/x";
   import XCircle from "@lucide/svelte/icons/circle-x";
@@ -122,6 +132,16 @@
     SeparatorVertical,
     Sun,
     Trash2,
+    Volume2,
+    ArrowLeft,
+    ChevronDown,
+    ChevronUp,
+    Eye,
+    EyeOff,
+    Folder,
+    FolderPlus,
+    GripVertical,
+    Pencil,
     Wifi,
     X,
     XCircle,

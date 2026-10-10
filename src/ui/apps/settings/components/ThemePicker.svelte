@@ -1,8 +1,24 @@
+<!-- Theme cards. Without props it edits the global (dock) theme; the toolbar page passes
+     its own value and a "same as the dock" card (inherit). -->
 <script lang="ts">
   import Icon from "@shared/components/Icon.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import type { ThemeMode } from "@shared/types.ts";
   import { editor } from "../state/editor.svelte.ts";
+
+  interface Props {
+    value?: ThemeMode | null;
+    onchange?: (theme: ThemeMode | null) => void;
+    /** label of an extra first card that means "no theme of its own" (null) */
+    inheritLabel?: string;
+  }
+  let { value, onchange, inheritLabel }: Props = $props();
+
+  const current = $derived(value === undefined ? editor.value.theme : value);
+  function select(theme: ThemeMode | null) {
+    if (onchange) onchange(theme);
+    else if (theme) editor.update((s) => (s.theme = theme));
+  }
 
   const themes: { id: ThemeMode; icon: string }[] = [
     { id: "glass", icon: "Sparkles" },
@@ -11,17 +27,40 @@
     { id: "light", icon: "Sun" },
     { id: "system", icon: "Monitor" },
   ];
+  /** the inherited theme drawn in the "same as the dock" card */
+  const inherited = $derived(editor.value.theme);
 </script>
 
-<div class="themes" role="radiogroup">
+<div class="themes" class:with-inherit={!!inheritLabel} role="radiogroup">
+  {#if inheritLabel}
+    <button
+      type="button"
+      role="radio"
+      aria-checked={current === null}
+      class="theme-card"
+      class:active={current === null}
+      onclick={() => select(null)}
+    >
+      <div class="preview preview-{inherited}">
+        <div class="preview-dock">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="preview-window"></div>
+      </div>
+      <div class="theme-label">
+        <Icon name="PanelLeft" size={14} />
+        {inheritLabel}
+      </div>
+    </button>
+  {/if}
   {#each themes as theme (theme.id)}
     <button
       type="button"
       role="radio"
-      aria-checked={editor.value.theme === theme.id}
+      aria-checked={current === theme.id}
       class="theme-card"
-      class:active={editor.value.theme === theme.id}
-      onclick={() => editor.update((s) => (s.theme = theme.id))}
+      class:active={current === theme.id}
+      onclick={() => select(theme.id)}
     >
       <div class="preview preview-{theme.id}">
         <div class="preview-dock">
@@ -42,6 +81,10 @@
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
+
+    &.with-inherit {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
   }
 
   .theme-card {

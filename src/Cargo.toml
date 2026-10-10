@@ -1,6 +1,6 @@
 [package]
 name = "sidedock"
-version = "1.2.0"
+version = "2.0.0"
 description = "A portable side dock for Windows that coexists with the native taskbar"
 authors = ["SideDock contributors"]
 license = "AGPL-3.0-or-later"
@@ -43,6 +43,7 @@ features = [
   "Win32_Storage_EnhancedStorage",
   "Win32_Storage_FileSystem",
   "Win32_System_Com",
+  "Win32_System_DataExchange",
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Diagnostics_Debug",
   "Win32_System_LibraryLoader",

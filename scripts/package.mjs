@@ -1,6 +1,7 @@
 // Packages the release build as a portable folder + zip:
 //
 //   release/SideDock/SideDock.exe                 (runnable in place)
+//   release/SideDock/sidedock_tray.dll            (system tray hook, loaded by Explorer)
 //   release/SideDock/LICENSE
 //   release/SideDock_<version>_x64_portable.zip
 //
@@ -19,9 +20,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
 const exe = join(root, "target", "release", "SideDock.exe");
-if (!existsSync(exe)) {
-  console.error(`missing ${exe}, run "npm run build" first`);
-  process.exit(1);
+const dll = join(root, "target", "release", "sidedock_tray.dll");
+for (const file of [exe, dll]) {
+  if (!existsSync(file)) {
+    console.error(`missing ${file}, run "npm run build" first`);
+    process.exit(1);
+  }
 }
 
 const out = join(root, "release");
@@ -32,13 +36,18 @@ const zip = join(out, `SideDock_${version}_x64_portable.zip`);
 function copyApp(target) {
   mkdirSync(target, { recursive: true });
   copyFileSync(exe, join(target, "SideDock.exe"));
+  copyFileSync(dll, join(target, "sidedock_tray.dll"));
   copyFileSync(join(root, "LICENSE"), join(target, "LICENSE"));
 }
 
 try {
   copyApp(folder);
 } catch (err) {
-  console.error(`cannot update ${folder}: is SideDock running from there? Quit it first.\n${err}`);
+  // Explorer keeps the tray hook DLL loaded for a moment after SideDock quits
+  console.error(
+    `cannot update ${folder}: is SideDock running from there? Quit it first ` +
+      `(if only sidedock_tray.dll is locked, wait a few seconds or restart Explorer).\n${err}`,
+  );
   process.exit(1);
 }
 

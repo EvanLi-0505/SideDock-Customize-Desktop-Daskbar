@@ -13,10 +13,15 @@ use crate::{
     app,
     error::{AppError, Result},
     logger,
-    modules::{apps, hotkeys, icons, start_apps, system, win_key},
+    modules::{
+        apps, hotkeys, icons,
+        shell_flyouts::{self, Flyout},
+        start_apps, system, system_tray, win_key,
+    },
     paths, session,
     state::{
         dock_items::{self, DockItem, DockItems},
+        launcher_layout::{self, LauncherLayout},
         settings::{self, AppSettings, DockSettings, StartMenuMode},
     },
     utils::throttle,
@@ -30,6 +35,9 @@ use crate::{
     windows_api::{keyboard, media, power, radios, shell, window::Window},
 };
 
+/// The launcher layout was saved (payload: `LauncherLayout`).
+const EVENT_LAUNCHER_LAYOUT: &str = "launcher-layout-changed";
+
 pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         // settings & state
@@ -42,11 +50,21 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         dock_pin_paths,
         dock_import_taskbar_pins,
         dock_pin_start_app,
+        // toolbar & system tray
+        toolbar_ready,
+        toolbar_get_info,
+        get_tray_icons,
+        tray_icon_action,
+        tray_place,
+        tray_use_windows_placement,
+        tray_drag,
         // Win key takeover
         win_key_state,
         win_key_set_enabled,
         // overlay
         get_start_apps,
+        get_launcher_layout,
+        save_launcher_layout,
         overlay_ready,
         overlay_hide,
         overlay_toggle_launcher,
@@ -222,6 +240,80 @@ async fn dock_import_taskbar_pins() -> Result<usize> {
     Ok(count)
 }
 
+// ======================= toolbar & system tray =======================
+
+#[tauri::command]
+async fn toolbar_ready(window: WebviewWindow) {
+    widgets::toolbar::set_ready(window.label());
+}
+
+#[tauri::command]
+async fn toolbar_get_info(window: WebviewWindow) -> Option<widgets::toolbar::ToolbarInfo> {
+    widgets::toolbar::info(window.label())
+}
+
+#[tauri::command]
+async fn get_tray_icons() -> Vec<system_tray::TrayIconInfo> {
+    system_tray::icons()
+}
+
+#[tauri::command]
+async fn tray_icon_action(id: String, action: system_tray::TrayAction) -> Result<()> {
+    system_tray::action(&id, action)
+}
+
+/// Moves a tray icon to the toolbar (at `index` among its icons) or to the overflow
+/// flyout. The current order becomes explicit, so it no longer depends on the default.
+#[tauri::command]
+async fn tray_place(
+    app: AppHandle,
+    key: String,
+    inline: bool,
+    index: Option<usize>,
+) -> Result<AppSettings> {
+    let icons = system_tray::icons();
+    let mut new = settings::get();
+    let tray = &mut new.toolbar.tray;
+    let mut order: Vec<String> = icons
+        .iter()
+        .filter(|i| i.inline && i.key != key)
+        .map(|i| i.key.clone())
+        .collect();
+    // icons placed earlier whose application is not running keep their place
+    for k in &tray.inline {
+        if k != &key && !order.contains(k) {
+            order.push(k.clone());
+        }
+    }
+    tray.overflow.retain(|k| k != &key);
+    if inline {
+        let at = index.unwrap_or(order.len()).min(order.len());
+        order.insert(at, key);
+    } else {
+        tray.overflow.insert(0, key);
+    }
+    tray.inline = order;
+    app::apply_settings(&app, new)
+}
+
+/// Copies the Windows taskbar's choice of icons to show (the rest go to the overflow).
+#[tauri::command]
+async fn tray_use_windows_placement(app: AppHandle) -> Result<AppSettings> {
+    let (inline, overflow) = system_tray::windows_placement();
+    let mut new = settings::get();
+    new.toolbar.tray.inline = inline;
+    new.toolbar.tray.overflow = overflow;
+    app::apply_settings(&app, new)
+}
+
+/// A tray icon is being dragged (phase "move" / "end" / "cancel"): tells the toolbars
+/// and the overflow flyout where the cursor is, in their own coordinates. The window
+/// under the cursor at "end" places the icon (`tray_place`).
+#[tauri::command]
+async fn tray_drag(app: AppHandle, phase: String, key: String) -> Result<()> {
+    widgets::toolbar::tray_drag(&app, &phase, &key)
+}
+
 // ======================= Win key takeover =======================
 
 #[tauri::command]
@@ -246,6 +338,20 @@ async fn win_key_set_enabled(app: AppHandle, enabled: bool) -> Result<win_key::W
 async fn get_start_apps() -> Vec<start_apps::StartApp> {
     start_apps::refresh();
     start_apps::list()
+}
+
+#[tauri::command]
+async fn get_launcher_layout() -> LauncherLayout {
+    launcher_layout::get()
+}
+
+#[tauri::command]
+async fn save_launcher_layout(layout: LauncherLayout) -> Result<LauncherLayout> {
+    let (layout, changed) = launcher_layout::replace(layout)?;
+    if changed {
+        app::emit(EVENT_LAUNCHER_LAYOUT, &layout);
+    }
+    Ok(layout)
 }
 
 #[tauri::command]
@@ -400,8 +506,9 @@ async fn shell_action(app: AppHandle, action: String) -> Result<()> {
         "show-desktop" => shell::toggle_desktop(),
         "task-manager" => shell::launch("taskmgr.exe", None, None, false)?,
         "recycle-bin" => shell::launch("shell:RecycleBinFolder", None, None, false)?,
-        "action-center" => shell::open_uri("ms-actioncenter:")?,
+        "action-center" => shell_flyouts::toggle(Flyout::NotificationCenter),
         "network" => shell::open_uri("ms-availablenetworks:")?,
+        "quick-settings" => shell_flyouts::toggle(Flyout::QuickSettings),
         "network-settings" => shell::open_uri("ms-settings:network")?,
         "bluetooth-settings" => shell::open_uri("ms-settings:bluetooth")?,
         "keyboard-settings" => shell::open_uri("ms-settings:regionlanguage")?,

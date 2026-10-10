@@ -6,7 +6,10 @@ use tauri::{AppHandle, Emitter, EventTarget, Manager, RunEvent};
 use crate::{
     commands,
     error::{Result, ResultLogExt},
-    modules::{apps, autostart, hotkeys, icons, start_apps, system, win_key},
+    modules::{
+        apps, autostart, hotkeys, icons, start_apps, system, system_tray, taskbar_visibility,
+        win_key,
+    },
     paths, session,
     state::{
         dock_items,
@@ -77,7 +80,27 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
     if old.launcher != new.launcher {
         win_key::sync(app);
     }
+    if old.taskbar != new.taskbar {
+        taskbar_visibility::set_hidden(new.taskbar.hide_native);
+    }
+    if old.toolbar != new.toolbar || old.taskbar != new.taskbar {
+        sync_toolbar();
+    }
+    if old.toolbar.tray != new.toolbar.tray {
+        system_tray::refresh();
+    }
     Ok(new)
+}
+
+/// Starts or stops the system tray watcher and re-places the toolbars.
+fn sync_toolbar() {
+    let toolbar = settings::get().toolbar;
+    if toolbar.shows_tray() {
+        system_tray::start();
+    } else {
+        system_tray::stop();
+    }
+    widgets::toolbar::request_reconcile();
 }
 
 /// Runs the action bound to a global shortcut (called on the hotkey thread).
@@ -195,6 +218,10 @@ pub fn run() {
             start_apps::refresh();
             win_key::sync(&handle);
             widgets::dock::start(handle.clone());
+            // native taskbar first: the toolbar may take its place
+            taskbar_visibility::set_hidden(settings::get().taskbar.hide_native);
+            widgets::toolbar::start(handle.clone());
+            sync_toolbar();
 
             if first_run {
                 widgets::settings::open(&handle)?;
@@ -219,6 +246,9 @@ pub fn run() {
         } => api.prevent_exit(),
         RunEvent::Exit => {
             win_key::shutdown();
+            system_tray::stop();
+            taskbar_visibility::set_hidden(false);
+            widgets::toolbar::shutdown(app);
             widgets::dock::shutdown(app);
             session::end();
         }

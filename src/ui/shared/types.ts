@@ -54,10 +54,71 @@ export interface WinKeyState {
   taskRegistered: boolean;
 }
 
+/** All = the user's layout followed by every other app; Pinned = only the layout */
+export type LauncherContent = "All" | "Pinned";
+
 export interface LauncherSettings {
   startMenu: StartMenuMode;
   takeOverWinKey: boolean;
   iconSize: number;
+  content: LauncherContent;
+}
+
+export type ToolbarPosition = "Top" | "Bottom";
+
+/** Keep in sync with TOOLBAR_ITEMS in src/background/state/settings.rs */
+export type ToolbarItemId =
+  | "start"
+  | "app-name"
+  | "media"
+  | "tray"
+  | "keyboard"
+  | "bluetooth"
+  | "quick-settings"
+  | "battery"
+  | "notifications"
+  | "clock"
+  | "task-manager"
+  | "show-desktop";
+
+export interface ToolbarItems {
+  left: ToolbarItemId[];
+  center: ToolbarItemId[];
+  right: ToolbarItemId[];
+}
+
+/** Which tray icons are on the toolbar and which are in the overflow flyout (by key). */
+export interface TrayPrefs {
+  inline: string[];
+  overflow: string[];
+  newIconsInline: boolean;
+}
+
+export interface ToolbarSettings {
+  enabled: boolean;
+  monitors: DockMonitors;
+  position: ToolbarPosition;
+  /** the toolbar never reserves screen space: it floats, hides, or takes the taskbar's place */
+  hideMode: HideMode;
+  delayToShow: number;
+  delayToHide: number;
+  /** CSS px */
+  height: number;
+  /** in the hidden taskbar's place: exactly the taskbar's height */
+  matchTaskbarHeight: boolean;
+  /** content size, percent */
+  scale: number;
+  /** null = same theme as the dock */
+  theme: ThemeMode | null;
+  backgroundOpacity: number;
+  items: ToolbarItems;
+  tray: TrayPrefs;
+  showSeconds: boolean;
+}
+
+export interface TaskbarSettings {
+  /** hide the native Windows taskbar (its reserved space is kept) */
+  hideNative: boolean;
 }
 
 export interface AppSettings {
@@ -68,6 +129,8 @@ export interface AppSettings {
   crashRecovery: boolean;
   dock: DockSettings;
   launcher: LauncherSettings;
+  toolbar: ToolbarSettings;
+  taskbar: TaskbarSettings;
   /** action id -> accelerator ("Ctrl+Alt+Backquote"), "" = disabled */
   shortcuts: Record<string, string>;
 }
@@ -277,3 +340,52 @@ export interface ThumbnailRequest {
   visibleWidth?: number;
   visibleHeight?: number;
 }
+
+// ---------------- toolbar & system tray ----------------
+
+export interface ToolbarInfo {
+  label: string;
+  monitor: MonitorInfo;
+  /** popups open on the other side */
+  edge: "top" | "bottom";
+  /** sits in the hidden Windows taskbar's place */
+  replacesTaskbar: boolean;
+  /** CSS px at its ends covered by a Windows flyout (quick settings, notifications) */
+  coveredLeft: number;
+  coveredRight: number;
+}
+
+/** A notification area icon of another application. */
+export interface TrayIcon {
+  id: string;
+  /** identity kept in the settings */
+  key: string;
+  tooltip: string;
+  /** changes whenever the image changes */
+  iconVersion: string;
+  /** on the toolbar (else in the overflow flyout) */
+  inline: boolean;
+}
+
+/** Cursor position of a tray icon drag, in the receiving window's CSS px. */
+export interface TrayDrag {
+  phase: "move" | "end" | "cancel";
+  key: string;
+  x: number;
+  y: number;
+  inside: boolean;
+}
+
+// ---------------- launcher layout ----------------
+
+export type LauncherEntry =
+  | { type: "App"; id: string }
+  | { type: "Folder"; id: string; name: string; apps: string[] };
+
+export interface LauncherLayout {
+  items: LauncherEntry[];
+  /** removed from the launcher (still found by search) */
+  removed: string[];
+}
+
+export type TrayAction = "left" | "double" | "right" | "middle";

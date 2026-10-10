@@ -1,5 +1,72 @@
 # Changelog
 
+## 2.0.0 - 2026-10-11
+
+### Fancy toolbar
+
+- New toolbar inspired by Seelen UI's fancy toolbar: start button, name of the app in the
+  foreground, media controls, keyboard layout, Bluetooth, network & volume (opens the
+  Windows quick settings), battery, clock and calendar (optional seconds), notifications
+  and a "show desktop" sliver.
+- **System tray icons inline**, side by side. Click, double click, right click and middle
+  click reach the application exactly as on the taskbar. The icons are captured with a
+  small hook DLL (`sidedock_tray.dll`) loaded into Explorer's taskbar thread, the same
+  technique as Seelen UI; it only forwards a copy of the `Shell_NotifyIcon` messages and
+  is unloaded when the tray is turned off.
+- Tray icons keep the size the application made them (24 px on a 150% display) and are
+  shown pixel for pixel like on the taskbar, instead of being stretched and scaled back.
+- Explorer's own status icons (volume, network, power...) are left out: on Windows 11
+  they are white on transparent and ignore clicks; the toolbar's quick settings, battery
+  and notification items replace them. "Safely remove hardware" stays.
+- The network & volume and the notification buttons toggle the Windows flyouts (they send
+  Win+A / Win+N): a second click closes the flyout instead of reopening it.
+- A toolbar floating above the visible taskbar sits where those flyouts open; they are
+  above every ordinary window, so the toolbar's items move aside while one covers its
+  end and stay visible and clickable.
+- You choose which icons are on the toolbar and which go to the overflow flyout ("^"):
+  drag them like on the Windows taskbar (into the flyout, back onto the toolbar, or along
+  the toolbar to reorder), switch them one by one in the settings, show them all, or copy
+  the Windows taskbar's own choice with one click.
+- **The toolbar never changes the desktop layout.** It never reserves screen space (any
+  change of the work area makes Explorer rearrange the desktop icons). At the bottom with
+  the Windows taskbar hidden it takes the taskbar's place; anywhere else it floats over
+  windows and can hide when a window overlaps it, or always (it comes back at the screen
+  edge). Show / hide delays are configurable. Hidden while a fullscreen app is in the
+  foreground.
+- Customizable like Seelen UI's: items are dragged between the left, center and right
+  sections or hidden; height, content size (80-140%), primary or every monitor.
+- Its own theme: same as the dock, or any of the five themes with its own opacity. Popups
+  opened from the toolbar follow it. The Home page says which theme is the dock's.
+
+### Launcher: choose what it shows, collections
+
+- Settings > "Start & switcher": the launcher shows every app, or only the apps you added.
+  Any app can be removed from the launcher; search and the new "All apps" view still find
+  it and can add it back.
+- Collections (folders like in the Windows 11 start menu): right-click an app > "New
+  collection" and name it, or drop an app onto another one. Drop apps on a collection to
+  add them; open it to start, reorder or drag apps out, click its title to rename,
+  right-click to ungroup.
+- Tiles are dragged to reorder them; holding one at the left / right screen edge turns
+  the page. The arrangement is kept in `data/config/launcher_layout.json`.
+
+### Hide the Windows taskbar without changing the desktop layout
+
+- Optional. Only the taskbar windows are hidden; their auto-hide state and the screen
+  area they reserve are left alone, so desktop icons and maximized windows never move,
+  on 16:9, 16:10 or any other screen. (Seelen UI switches the taskbar to auto-hide, which
+  resizes the work area and rearranges the desktop.)
+- Turning the option off always brings the taskbar back, however fast it is switched: the
+  restore no longer trusts the taskbar's current visibility (a pending "hide" could land
+  after it) and is checked again for a few seconds.
+- The taskbar is found with `FindWindowEx`: while quick settings is open Explorer moves it
+  to a window band `EnumWindows` does not list, where it could be neither hidden nor
+  restored.
+- Hidden again right away if Explorer shows it (or restarts). Shown again when SideDock
+  exits, when the option is turned off and, through the guardian, after a crash.
+- The start button choice (Windows start menu or SideDock launcher) sits next to it, on
+  the Home page and on the new "Toolbar & taskbar" settings page.
+
 ## 1.2.0 - 2026-09-30
 
 ### Launcher (SideDock start menu)

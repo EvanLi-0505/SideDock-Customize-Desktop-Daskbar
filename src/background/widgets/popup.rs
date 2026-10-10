@@ -16,7 +16,7 @@ use super::{WidgetWindow, hwnd_of, native, set_rounded_corners, set_tool_window}
 use crate::{
     app,
     error::Result,
-    state::settings,
+    state::settings::{self, ThemeMode},
     windows_api::{monitor, window::Rect},
 };
 
@@ -61,6 +61,17 @@ pub struct PopupRequest {
     /// identity used to toggle the popup when the same element is clicked twice
     #[serde(default)]
     pub key: Option<String>,
+    /// false: shown without taking the focus (opened during a drag); `activate` gives
+    /// it the focus later
+    #[serde(default = "yes")]
+    pub activate: bool,
+    /// theme of the widget that opens it (the toolbar can have its own), None = global
+    #[serde(default)]
+    pub theme: Option<ThemeMode>,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -79,6 +90,7 @@ struct RenderPayload {
     data: serde_json::Value,
     owner: String,
     placement: Placement,
+    theme: Option<ThemeMode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,6 +110,7 @@ struct PopupState {
     anchor: Rect,
     placement: Option<Placement>,
     align: Align,
+    activate: bool,
     monitor: isize,
     visible: bool,
     /// token + physical rect of what is currently on screen
@@ -141,8 +154,31 @@ pub fn create(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Theme the native backdrop was last set up for.
+static APPLIED_THEME: Mutex<Option<ThemeMode>> = Mutex::new(None);
+
 pub fn apply_theme(window: &WebviewWindow) {
-    super::apply_backdrop(window, settings::get().theme, false);
+    set_backdrop(window, settings::get().theme);
+}
+
+fn set_backdrop(window: &WebviewWindow, theme: ThemeMode) {
+    super::apply_backdrop(window, theme, false);
+    *APPLIED_THEME.lock() = Some(theme);
+}
+
+/// Gives the focus to a popup shown without it (see `PopupRequest::activate`).
+pub fn activate(app: &AppHandle) {
+    let mut state = STATE.lock();
+    if !state.visible || state.activate {
+        return;
+    }
+    state.activate = true;
+    drop(state);
+    if let Some(window) = app.get_webview_window(LABEL)
+        && let Ok(hwnd) = hwnd_of(&window)
+    {
+        native::show_active(hwnd);
+    }
 }
 
 pub fn current_owner() -> Option<String> {
@@ -210,9 +246,17 @@ pub fn open(app: &AppHandle, caller: &WebviewWindow, request: PopupRequest) -> R
         state.anchor = anchor;
         state.placement = Some(request.placement);
         state.align = request.align;
+        state.activate = request.activate;
         state.monitor = monitor;
         state.token
     };
+
+    let theme = request.theme.unwrap_or_else(settings::theme);
+    if *APPLIED_THEME.lock() != Some(theme)
+        && let Some(window) = app.get_webview_window(LABEL)
+    {
+        set_backdrop(&window, theme);
+    }
 
     app::emit_to(
         app,
@@ -224,6 +268,7 @@ pub fn open(app: &AppHandle, caller: &WebviewWindow, request: PopupRequest) -> R
             data: request.data,
             owner: caller.label().to_string(),
             placement: request.placement,
+            theme: request.theme,
         },
     );
     Ok(())
@@ -247,7 +292,7 @@ pub fn ready(app: &AppHandle, token: u64, width: f64, height: f64) -> Result<()>
     let window = app
         .get_webview_window(LABEL)
         .ok_or("popup window is not available")?;
-    let (anchor, placement, align, monitor_id) = {
+    let (anchor, placement, align, monitor_id, activate) = {
         let state = STATE.lock();
         if state.token != token || state.owner.is_none() {
             return Ok(()); // a newer request superseded this one
@@ -257,6 +302,7 @@ pub fn ready(app: &AppHandle, token: u64, width: f64, height: f64) -> Result<()>
             state.placement.unwrap_or(Placement::Right),
             state.align,
             state.monitor,
+            state.activate,
         )
     };
 
@@ -293,7 +339,11 @@ pub fn ready(app: &AppHandle, token: u64, width: f64, height: f64) -> Result<()>
         },
     )?;
     // focus is required so that clicking elsewhere closes the popup (blur)
-    native::show_active(hwnd_of(&window)?);
+    if activate {
+        native::show_active(hwnd_of(&window)?);
+    } else {
+        native::show_passive(hwnd_of(&window)?);
+    }
     STATE.lock().visible = true;
     Ok(())
 }

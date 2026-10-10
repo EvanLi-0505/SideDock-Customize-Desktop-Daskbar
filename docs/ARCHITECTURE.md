@@ -14,14 +14,19 @@ src/
     session.rs           session lock, crash guardian, panic hook
     paths.rs, logger.rs  portable data folder, rolling file logs
     tray.rs              tray icon on the native taskbar
-    state/               persisted state (settings, dock items) with atomic writes
-    modules/             OS watchers: app windows, system poller, autostart, icon cache
+    state/               persisted state (settings, dock items, launcher layout) with
+                         atomic writes
+    modules/             OS watchers: app windows, system poller, autostart, icon cache,
+                         system tray (receiver of the Explorer hook), taskbar visibility,
+                         shell flyouts (quick settings / notification center toggles)
     widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
-                         tooltip, overlay (launcher / window switcher), settings
+                         tooltip, overlay (launcher / window switcher), toolbar, settings
     windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media...)
   ui/                    Svelte 5 frontend (Vite, multi-page)
     shared/              types mirrored from Rust, IPC, i18n, themes, components
-    apps/<widget>/       one app per webview: dock, popup, tooltip, overlay, settings
+    apps/<widget>/       one app per webview: dock, popup, tooltip, overlay, toolbar, settings
+tray-hook/               sidedock_tray.dll: WH_CALLWNDPROC hook loaded into Explorer's taskbar
+                         thread, forwards Shell_NotifyIcon messages to SideDock
   static/icons/          app icons (logo.svg is the source)
 scripts/package.mjs      portable zip packaging
 ```
@@ -87,6 +92,15 @@ scripts/package.mjs      portable zip packaging
 
 * Never write to the user profile: every path comes from `paths::get()`; every webview is
   created through `WidgetWindow::builder`, which pins the WebView2 profile to `data/`.
+* Only the dock may reserve screen space (AppBar), and only when the user picks "never
+  hide". The toolbar never does: changing the work area makes Explorer rearrange the
+  desktop icons. It floats, hides, or sits in the hidden taskbar's reserved place.
+* Hiding the Windows taskbar only hides its windows (`SW_HIDE`); its auto-hide state and
+  reserved work area are never touched, so the desktop layout cannot change. A marker in
+  `data/runtime` lets the guardian restore the taskbar after a crash.
+* Code running inside Explorer (`tray-hook`) never panics, never blocks for more than a
+  short timeout and always passes the message on; the receiver replies before doing any
+  slow work.
 * Background threads are started with `utils::spawn_supervised` (restart on panic).
 * Commands that launch things are throttled with `utils::throttle`.
 * Persisted files are written with `state::storage::save_json` (atomic + backup).

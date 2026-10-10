@@ -4,7 +4,7 @@
   import Switch from "@shared/components/Switch.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api } from "@shared/ipc.ts";
-  import type { AppInfo, DockSide, Language } from "@shared/types.ts";
+  import type { AppInfo, DockSide, Language, StartMenuMode } from "@shared/types.ts";
   import SettingsRow from "../components/SettingsRow.svelte";
   import StorageCards from "../components/StorageCards.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
@@ -55,7 +55,16 @@
   </section>
 
   <section class="card">
-    <h3 class="card-title">{t("home.theme")}</h3>
+    <div class="card-head">
+      <div>
+        <h3 class="card-title">{t("home.theme")}</h3>
+        <p class="card-sub">{t("home.themeScope")}</p>
+      </div>
+      <button type="button" class="btn btn-ghost" onclick={() => navigate("toolbar")}>
+        {t("home.toolbarTheme")}
+        <Icon name="ChevronRight" size={14} />
+      </button>
+    </div>
     <ThemePicker />
     {#if !glassTheme}
       <div class="opacity-row">
@@ -98,6 +107,38 @@
         {t("home.editDock")}
         <Icon name="ChevronRight" size={14} />
       </button>
+    </SettingsRow>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h3 class="card-title">{t("home.toolbarCard")}</h3>
+      <button type="button" class="btn btn-ghost" onclick={() => navigate("toolbar")}>
+        {t("home.editToolbar")}
+        <Icon name="ChevronRight" size={14} />
+      </button>
+    </div>
+    <SettingsRow label={t("toolbar.enable")}>
+      <Switch
+        checked={editor.value.toolbar.enabled}
+        onchange={(v) => editor.update((s) => (s.toolbar.enabled = v))}
+      />
+    </SettingsRow>
+    <SettingsRow label={t("taskbar.hide")} hint={t("taskbar.hideHint")}>
+      <Switch
+        checked={editor.value.taskbar.hideNative}
+        onchange={(v) => editor.update((s) => (s.taskbar.hideNative = v))}
+      />
+    </SettingsRow>
+    <SettingsRow label={t("taskbar.startMenu")}>
+      <Segmented
+        value={editor.value.launcher.startMenu}
+        options={[
+          { value: "Native" as StartMenuMode, label: t("launcherPage.native") },
+          { value: "SideDock" as StartMenuMode, label: t("launcherPage.sidedock") },
+        ]}
+        onchange={(v) => editor.update((s) => (s.launcher.startMenu = v))}
+      />
     </SettingsRow>
   </section>
 

@@ -1,0 +1,278 @@
+/*
+ * Toolbar styles. Same tokens as the dock (theme.css), so every theme and the bar
+ * opacity setting apply to both. The frosted glass blur is a native window behind the
+ * whole toolbar (widgets/dock/backdrop.rs).
+ */
+
+html,
+body {
+  background: transparent !important;
+}
+
+body,
+#root {
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  /* a Windows flyout (quick settings, notification center) opens over one end of a
+     toolbar floating above the taskbar: the items move out from under it */
+  padding: 0 var(--covered-right, 0px) 0 calc(6px + var(--covered-left, 0px));
+  transition: padding 160ms var(--ease);
+  color: var(--fg);
+  font-size: calc(12px * var(--tb-scale, 1));
+  user-select: none;
+  outline: none;
+
+  /* Settings > Toolbar > content size */
+  --tb-hover: color-mix(in srgb, var(--fg) 10%, transparent);
+  --tb-pressed: color-mix(in srgb, var(--fg) 16%, transparent);
+  --tb-item: min(calc(32px * var(--tb-scale, 1)), calc(100vh - 6px));
+  --tb-icon: calc(15px * var(--tb-scale, 1));
+  --tb-tray-icon: calc(16px * var(--tb-scale, 1));
+}
+
+.toolbar-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--dock-bg);
+  box-shadow: var(--dock-highlight, 0 0 0 transparent);
+  pointer-events: none;
+}
+/* a hairline on the side facing the screen content */
+.toolbar.edge-bottom .toolbar-bg {
+  border-top: 1px solid var(--dock-border);
+}
+.toolbar.edge-top .toolbar-bg {
+  border-bottom: 1px solid var(--dock-border);
+}
+
+:root[data-theme="clear"] .toolbar-bg {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 70%),
+    var(--dock-bg);
+}
+
+.section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  min-width: 0;
+}
+.section.left {
+  flex: 1 1 0;
+  gap: 8px;
+}
+.section.center {
+  flex: 0 1 auto;
+  justify-content: center;
+}
+.section.right {
+  flex: 1 1 0;
+  justify-content: flex-end;
+}
+
+/* ---------- buttons ---------- */
+
+.tb-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: var(--tb-item);
+  height: var(--tb-item);
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  color: inherit;
+  background: transparent;
+  transition: background-color var(--dur-fast) ease;
+
+  &:hover {
+    background: var(--tb-hover);
+  }
+  &:active {
+    background: var(--tb-pressed);
+  }
+  &.dim {
+    opacity: 0.55;
+  }
+  &.low {
+    color: var(--danger);
+  }
+  &.small {
+    min-width: calc(22px * var(--tb-scale, 1));
+    height: calc(22px * var(--tb-scale, 1));
+    padding: 0;
+  }
+
+  /* lucide sets width/height attributes; CSS wins over them */
+  & > svg.icon {
+    width: var(--tb-icon);
+    height: var(--tb-icon);
+  }
+}
+
+.tb-text {
+  font-weight: 600;
+  font-size: 0.96em;
+  letter-spacing: 0.02em;
+}
+
+.tb-small {
+  font-size: 0.96em;
+  font-variant-numeric: tabular-nums;
+}
+
+.start svg {
+  width: calc(17px * var(--tb-scale, 1));
+  height: calc(17px * var(--tb-scale, 1));
+  fill: var(--accent);
+}
+
+.app-name {
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 1.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 40%;
+  margin: 0 4px;
+  background: var(--dock-separator);
+  opacity: 0.35;
+}
+
+/* ---------- media ---------- */
+
+.media {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 340px;
+  height: var(--tb-item);
+  padding: 0 4px;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+.media-thumb {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--tb-hover);
+}
+.media-title {
+  overflow: hidden;
+  min-width: 0;
+  margin: 0 4px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- tray ---------- */
+
+/* every icon stays visible: the tray only shrinks the app name */
+.tray {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0;
+}
+.tray-icon {
+  min-width: calc(28px * var(--tb-scale, 1));
+  padding: 0;
+  touch-action: none;
+
+  img {
+    width: var(--tb-tray-icon);
+    height: var(--tb-tray-icon);
+    pointer-events: none;
+  }
+
+  /* being dragged: stays in place, faded, until it is dropped */
+  &.dragging {
+    opacity: 0.3;
+  }
+}
+
+/* where a dragged icon would land */
+.tray-drop-marker {
+  flex-shrink: 0;
+  width: 2px;
+  height: calc(var(--tb-item) * 0.7);
+  margin: 0 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.drop-ghost {
+  opacity: 0.6;
+  outline: 1px dashed var(--accent);
+  outline-offset: -3px;
+}
+
+.tray-overflow {
+  min-width: calc(24px * var(--tb-scale, 1));
+  padding: 0;
+
+  /* a dragged icon is over it: dropping hides the icon */
+  &.drop {
+    background: var(--tb-pressed);
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+  }
+}
+
+/* ---------- clock ---------- */
+
+.clock {
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  &.two-lines {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+    line-height: 1.25;
+  }
+  .clock-time {
+    font-weight: 600;
+  }
+  &.two-lines .clock-date {
+    font-size: 0.92em;
+    opacity: 0.85;
+  }
+}
+
+/* ---------- show desktop sliver ---------- */
+
+.show-desktop {
+  flex-shrink: 0;
+  width: 8px;
+  height: 100%;
+  margin-left: 4px;
+  background: transparent;
+
+  &:hover {
+    border-left: 1px solid var(--dock-separator);
+    opacity: 0.6;
+  }
+}

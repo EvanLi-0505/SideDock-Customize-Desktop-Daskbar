@@ -1,5 +1,5 @@
 [workspace]
-members = ["src"]
+members = ["src", "tray-hook"]
 resolver = "3"
 
 [profile.dev]

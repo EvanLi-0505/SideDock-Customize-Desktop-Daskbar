@@ -8,6 +8,7 @@ import Dock from "./pages/Dock.svelte";
 import Modules from "./pages/Modules.svelte";
 import Shortcuts from "./pages/Shortcuts.svelte";
 import Launcher from "./pages/Launcher.svelte";
+import Toolbar from "./pages/Toolbar.svelte";
 import Data from "./pages/Data.svelte";
 import About from "./pages/About.svelte";
 
@@ -18,6 +19,7 @@ export type PageId =
   | "dock"
   | "modules"
   | "launcher"
+  | "toolbar"
   | "data"
   | "about";
 
@@ -41,6 +43,7 @@ export const PAGES: PageEntry[] = [
   { id: "dock", label: "nav.dock", icon: "PanelLeft", group: 1, component: Dock },
   { id: "modules", label: "nav.modules", icon: "LayoutDashboard", group: 1, component: Modules },
   { id: "launcher", label: "nav.launcher", icon: "LayoutGrid", group: 1, component: Launcher },
+  { id: "toolbar", label: "nav.toolbar", icon: "PanelBottom", group: 1, component: Toolbar },
   { id: "data", label: "nav.data", icon: "Database", group: 2, component: Data },
   { id: "about", label: "nav.about", icon: "Info", group: 2, component: About },
 ];

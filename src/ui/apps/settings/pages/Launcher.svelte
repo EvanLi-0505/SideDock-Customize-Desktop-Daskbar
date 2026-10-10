@@ -8,7 +8,7 @@
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api, Events, on } from "@shared/ipc.ts";
   import { acceleratorKeys } from "@shared/shortcuts.ts";
-  import type { StartMenuMode, WinKeyState } from "@shared/types.ts";
+  import type { LauncherContent, StartMenuMode, WinKeyState } from "@shared/types.ts";
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import { editor } from "../state/editor.svelte.ts";
@@ -102,6 +102,16 @@
         {/if}
       </div>
     {/if}
+    <SettingsRow label={t("launcherPage.content")} hint={t("launcherPage.contentHint")}>
+      <Segmented
+        value={launcher.content}
+        options={[
+          { value: "All" as LauncherContent, label: t("launcherPage.contentAll") },
+          { value: "Pinned" as LauncherContent, label: t("launcherPage.contentPinned") },
+        ]}
+        onchange={(v) => editor.update((s) => (s.launcher.content = v))}
+      />
+    </SettingsRow>
     <SettingsRow label={t("launcherPage.iconSize")}>
       <Slider
         value={launcher.iconSize}

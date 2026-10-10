@@ -408,10 +408,40 @@ fn apply_tint(b: &Backdrop) {
 // ---------------- per-frame sync ----------------
 
 /// Keeps one backdrop per dock in place. `enabled` = the frosted glass theme is active.
-pub fn sync(docks: &[DockState], enabled: bool, dark: bool) {
+/// A blurred area: placed right below `owner` (a dock or toolbar window), at `rect`
+/// (physical px) with rounded corners of `radius` px.
+#[derive(Debug, Clone)]
+pub struct BackdropTarget {
+    pub label: String,
+    pub owner: isize,
+    pub rect: Rect,
+    pub radius: i32,
+    pub visible: bool,
+}
+
+impl BackdropTarget {
+    /// The blur under a dock's bar, if the page reported its shape.
+    pub fn for_dock(dock: &DockState) -> Option<Self> {
+        let shape = dock.backdrop?;
+        Some(Self {
+            label: dock.label.clone(),
+            owner: dock.hwnd,
+            rect: dock.to_physical(shape.x, shape.y, shape.width, shape.height),
+            radius: (shape.radius * dock.scale).round() as i32,
+            visible: dock.ready
+                && dock.shown
+                && !dock.hidden
+                && !dock.fullscreen_hidden
+                && super::native::is_visible(dock.hwnd),
+        })
+    }
+}
+
+/// Keeps one backdrop per target in place. `enabled` = the frosted glass theme is active.
+pub fn sync(targets: &[BackdropTarget], enabled: bool, dark: bool) {
     let mut backdrops = BACKDROPS.lock();
     backdrops.retain(|label, b| {
-        let keep = enabled && docks.iter().any(|d| &d.label == label);
+        let keep = enabled && targets.iter().any(|t| &t.label == label);
         if !keep {
             destroy(b);
         }
@@ -420,11 +450,8 @@ pub fn sync(docks: &[DockState], enabled: bool, dark: bool) {
     if !enabled {
         return;
     }
-    for dock in docks {
-        let Some(shape) = dock.backdrop else {
-            continue;
-        };
-        if !backdrops.contains_key(&dock.label) {
+    for target in targets {
+        if !backdrops.contains_key(&target.label) {
             let Some((h, mode)) = create_window() else {
                 continue;
             };
@@ -439,19 +466,15 @@ pub fn sync(docks: &[DockState], enabled: bool, dark: bool) {
                 frames: 0,
             };
             apply_tint(&b);
-            backdrops.insert(dock.label.clone(), b);
+            backdrops.insert(target.label.clone(), b);
         }
-        let b = backdrops.get_mut(&dock.label).expect("inserted above");
-        update(b, dock, shape, dark);
+        let b = backdrops.get_mut(&target.label).expect("inserted above");
+        update(b, target, dark);
     }
 }
 
-fn update(b: &mut Backdrop, dock: &DockState, shape: BackdropShape, dark: bool) {
-    let visible = dock.ready
-        && dock.shown
-        && !dock.hidden
-        && !dock.fullscreen_hidden
-        && super::native::is_visible(dock.hwnd);
+fn update(b: &mut Backdrop, target: &BackdropTarget, dark: bool) {
+    let visible = target.visible;
 
     let t = tint_for(b.mode, dark);
     if t != b.tint {
@@ -475,8 +498,8 @@ fn update(b: &mut Backdrop, dock: &DockState, shape: BackdropShape, dark: bool) 
         return;
     }
 
-    let rect = dock.to_physical(shape.x, shape.y, shape.width, shape.height);
-    let radius = (shape.radius * dock.scale).round() as i32;
+    let rect = target.rect;
+    let radius = target.radius;
     let next = (rect.width(), rect.height(), radius);
     if next != b.shape {
         match b.mode {
@@ -495,7 +518,7 @@ fn update(b: &mut Backdrop, dock: &DockState, shape: BackdropShape, dark: bool) 
         b.shape = next;
     }
 
-    // re-slotted below the dock from time to time: the dock re-asserts topmost now and then
+    // re-slotted below its owner from time to time: owners re-assert topmost now and then
     b.frames = b.frames.wrapping_add(1);
     if rect != b.rect || !b.shown || b.frames.is_multiple_of(REORDER_EVERY) {
         let flags = if b.shown {
@@ -506,7 +529,7 @@ fn update(b: &mut Backdrop, dock: &DockState, shape: BackdropShape, dark: bool) 
         let _ = unsafe {
             SetWindowPos(
                 hwnd(b.hwnd),
-                Some(hwnd(dock.hwnd)),
+                Some(hwnd(target.owner)),
                 rect.left,
                 rect.top,
                 rect.width(),

@@ -135,6 +135,7 @@ fn update_focus(window: Window) {
         path: window.exe_path(),
         is_own,
     };
+    super::shell_flyouts::on_foreground(window, focused.path.as_deref());
     let changed = {
         let mut guard = FOCUSED.write();
         let changed = *guard != focused;

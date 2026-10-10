@@ -119,6 +119,11 @@ fn send_chord(keys: &[VIRTUAL_KEY]) {
     }
 }
 
+/// Presses the keys in order and releases them in reverse (a shortcut such as Win+A).
+pub fn send_keys(keys: &[VIRTUAL_KEY]) {
+    send_chord(keys);
+}
+
 pub fn toggle_start_menu() {
     send_chord(&[VK_LWIN]);
 }

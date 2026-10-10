@@ -11,13 +11,18 @@ import type {
   DockInfo,
   DockItems,
   FocusedApp,
+  LauncherLayout,
   Placement,
   ShortcutStatus,
   StartApp,
   StorageUsage,
   SystemColors,
   SystemState,
+  ThemeMode,
   ThumbnailRequest,
+  ToolbarInfo,
+  TrayAction,
+  TrayIcon,
   UserAppWindow,
   WinKeyState,
 } from "./types.ts";
@@ -41,6 +46,10 @@ export const Events = {
   OverlayHidden: "overlay-hidden",
   SwitcherStep: "switcher-step",
   WinKeyStatus: "win-key-status-changed",
+  ToolbarInfo: "toolbar-info",
+  SystemTrayChanged: "system-tray-changed",
+  TrayDrag: "tray-drag",
+  LauncherLayoutChanged: "launcher-layout-changed",
 } as const;
 
 export function on<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
@@ -115,6 +124,10 @@ export const api = {
     /** "start" opens like a native context menu at the anchor, "center" centers on it */
     align?: "center" | "start";
     key?: string;
+    /** false: shown without the focus (during a drag) */
+    activate?: boolean;
+    /** theme of the opening widget, when it differs from the global one */
+    theme?: ThemeMode | null;
   }) => fire(invoke("popup_open", { request })),
   popupReady: (token: number, width: number, height: number) =>
     fire(invoke("popup_ready", { token, width, height })),
@@ -132,12 +145,25 @@ export const api = {
   tooltipFollow: (anchor: AnchorRect, placement: Placement) =>
     fire(invoke("tooltip_follow", { anchor, placement })),
 
+  // toolbar & system tray
+  toolbarReady: () => fire(invoke("toolbar_ready")),
+  toolbarGetInfo: () => invoke<ToolbarInfo | null>("toolbar_get_info"),
+  getTrayIcons: () => invoke<TrayIcon[]>("get_tray_icons"),
+  trayIconAction: (id: string, action: TrayAction) => fire(invoke("tray_icon_action", { id, action })),
+  /** to the toolbar at `index` among its icons, or to the overflow flyout */
+  trayPlace: (key: string, inline: boolean, index: number | null = null) =>
+    invoke<AppSettings>("tray_place", { key, inline, index }),
+  trayUseWindowsPlacement: () => invoke<AppSettings>("tray_use_windows_placement"),
+  trayDrag: (phase: "move" | "end" | "cancel", key: string) => fire(invoke("tray_drag", { phase, key })),
+
   // Win key takeover: turning it on asks for administrator rights once (UAC)
   winKeyState: () => invoke<WinKeyState>("win_key_state"),
   winKeySetEnabled: (enabled: boolean) => invoke<WinKeyState>("win_key_set_enabled", { enabled }),
 
   // overlay: launcher & window switcher
   getStartApps: () => invoke<StartApp[]>("get_start_apps"),
+  getLauncherLayout: () => invoke<LauncherLayout>("get_launcher_layout"),
+  saveLauncherLayout: (layout: LauncherLayout) => invoke<LauncherLayout>("save_launcher_layout", { layout }),
   overlayReady: (token: number) => fire(invoke("overlay_ready", { token })),
   overlayHide: () => fire(invoke("overlay_hide")),
   overlayToggleLauncher: () => fire(invoke("overlay_toggle_launcher")),
@@ -168,6 +194,11 @@ export function iconUrl(path: string | null | undefined, umid?: string | null): 
   if (path) params.set("path", path);
   if (umid) params.set("umid", umid);
   return `http://sdicon.localhost/?${params.toString()}`;
+}
+
+/** Image of a notification area icon (`version` busts the cache when it changes). */
+export function trayIconUrl(icon: { id: string; iconVersion: string }): string {
+  return `http://sdicon.localhost/?tray=${encodeURIComponent(icon.id)}&v=${icon.iconVersion}`;
 }
 
 export function bootstrap() {

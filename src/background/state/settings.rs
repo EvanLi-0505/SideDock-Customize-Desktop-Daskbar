@@ -102,6 +102,16 @@ pub struct LauncherSettings {
     pub take_over_win_key: bool,
     /// icon size in the launcher grid (CSS px)
     pub icon_size: u32,
+    /// every app, or only the apps the user added (see `state/launcher_layout.rs`)
+    pub content: LauncherContent,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LauncherContent {
+    /// the user's layout, followed by every other app (except the removed ones)
+    All,
+    /// only the user's layout; the other apps are found by search or "All apps"
+    Pinned,
 }
 
 impl Default for LauncherSettings {
@@ -110,6 +120,7 @@ impl Default for LauncherSettings {
             start_menu: StartMenuMode::Native,
             take_over_win_key: false,
             icon_size: 64,
+            content: LauncherContent::All,
         }
     }
 }
@@ -123,6 +134,185 @@ impl LauncherSettings {
     pub fn wants_win_key(&self) -> bool {
         self.start_menu == StartMenuMode::SideDock && self.take_over_win_key
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToolbarPosition {
+    Top,
+    /// in place of the native taskbar when it is hidden, above it otherwise
+    Bottom,
+}
+
+/// Every item the toolbar can show. Keep in sync with `src/ui/apps/toolbar/items.ts`.
+pub const TOOLBAR_ITEMS: &[&str] = &[
+    "start",
+    "app-name",
+    "media",
+    "tray",
+    "keyboard",
+    "bluetooth",
+    "quick-settings",
+    "battery",
+    "notifications",
+    "clock",
+    "task-manager",
+    "show-desktop",
+];
+
+/// Items of the toolbar's three sections, in order. Items in no section are not shown.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ToolbarItems {
+    pub left: Vec<String>,
+    pub center: Vec<String>,
+    pub right: Vec<String>,
+}
+
+impl Default for ToolbarItems {
+    fn default() -> Self {
+        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect();
+        Self {
+            left: list(&["start", "app-name"]),
+            center: list(&["media"]),
+            right: list(&[
+                "tray",
+                "keyboard",
+                "bluetooth",
+                "quick-settings",
+                "battery",
+                "notifications",
+                "clock",
+                "show-desktop",
+            ]),
+        }
+    }
+}
+
+impl ToolbarItems {
+    /// Drops unknown and repeated items.
+    fn sanitize(&mut self) {
+        let mut seen: Vec<String> = Vec::new();
+        for section in [&mut self.left, &mut self.center, &mut self.right] {
+            section.retain(|id| {
+                let ok = TOOLBAR_ITEMS.contains(&id.as_str()) && !seen.contains(id);
+                if ok {
+                    seen.push(id.clone());
+                }
+                ok
+            });
+        }
+    }
+
+    pub fn contains(&self, id: &str) -> bool {
+        [&self.left, &self.center, &self.right]
+            .iter()
+            .any(|s| s.iter().any(|i| i == id))
+    }
+}
+
+/// Which notification area icons are shown on the toolbar and which go to the overflow
+/// flyout ("^"). Icons are identified by `system_tray` keys (GUID or executable + id).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct TrayPrefs {
+    /// shown on the toolbar, in this order
+    pub inline: Vec<String>,
+    /// moved to the overflow flyout
+    pub overflow: Vec<String>,
+    /// where icons the user never placed go
+    pub new_icons_inline: bool,
+}
+
+impl Default for TrayPrefs {
+    fn default() -> Self {
+        Self {
+            inline: Vec::new(),
+            overflow: Vec::new(),
+            new_icons_inline: true,
+        }
+    }
+}
+
+const TRAY_PREFS_MAX: usize = 512;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ToolbarSettings {
+    pub enabled: bool,
+    pub monitors: DockMonitors,
+    pub position: ToolbarPosition,
+    /// The toolbar never reserves screen space (that would rearrange the desktop): it
+    /// floats over windows, hides with them, or sits in the hidden taskbar's place.
+    pub hide_mode: HideMode,
+    pub delay_to_show: u32,
+    pub delay_to_hide: u32,
+    /// CSS px
+    pub height: u32,
+    /// in the hidden taskbar's place: exactly the taskbar's height
+    pub match_taskbar_height: bool,
+    /// content size (percent)
+    pub scale: u32,
+    /// None = same theme as the dock
+    pub theme: Option<ThemeMode>,
+    /// bar background opacity (percent) for the solid themes
+    pub background_opacity: u32,
+    pub items: ToolbarItems,
+    pub tray: TrayPrefs,
+    pub show_seconds: bool,
+}
+
+impl Default for ToolbarSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            monitors: DockMonitors::Primary,
+            position: ToolbarPosition::Bottom,
+            hide_mode: HideMode::OnOverlap,
+            delay_to_show: 120,
+            delay_to_hide: 600,
+            height: 40,
+            match_taskbar_height: true,
+            scale: 100,
+            theme: None,
+            background_opacity: 92,
+            items: ToolbarItems::default(),
+            tray: TrayPrefs::default(),
+            show_seconds: false,
+        }
+    }
+}
+
+impl ToolbarSettings {
+    fn sanitize(&mut self) {
+        self.height = self.height.clamp(28, 72);
+        self.scale = self.scale.clamp(80, 140);
+        self.delay_to_show = self.delay_to_show.min(10_000);
+        self.delay_to_hide = self.delay_to_hide.min(10_000);
+        self.background_opacity = self.background_opacity.min(100);
+        self.items.sanitize();
+        let tray = &mut self.tray;
+        let mut seen = std::collections::HashSet::new();
+        tray.inline.retain(|k| seen.insert(k.clone()));
+        tray.overflow.retain(|k| seen.insert(k.clone()));
+        tray.inline.truncate(TRAY_PREFS_MAX);
+        tray.overflow.truncate(TRAY_PREFS_MAX);
+    }
+
+    /// The toolbar's theme (its own or the dock's).
+    pub fn theme_or(&self, global: ThemeMode) -> ThemeMode {
+        self.theme.unwrap_or(global)
+    }
+
+    pub fn shows_tray(&self) -> bool {
+        self.enabled && self.items.contains("tray")
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct TaskbarSettings {
+    /// hide the native Windows taskbar (its reserved space is kept)
+    pub hide_native: bool,
 }
 
 /// What the dock does when its items do not fit.
@@ -253,6 +443,8 @@ pub struct AppSettings {
     pub crash_recovery: bool,
     pub dock: DockSettings,
     pub launcher: LauncherSettings,
+    pub toolbar: ToolbarSettings,
+    pub taskbar: TaskbarSettings,
     /// action id -> accelerator ("Ctrl+Alt+Backquote"); empty string = disabled
     pub shortcuts: BTreeMap<String, String>,
 }
@@ -282,6 +474,8 @@ impl Default for AppSettings {
             crash_recovery: true,
             dock: DockSettings::default(),
             launcher: LauncherSettings::default(),
+            toolbar: ToolbarSettings::default(),
+            taskbar: TaskbarSettings::default(),
             shortcuts: default_shortcuts(),
         }
     }
@@ -291,6 +485,7 @@ impl AppSettings {
     pub fn sanitize(&mut self) {
         self.dock.sanitize();
         self.launcher.sanitize();
+        self.toolbar.sanitize();
         if self.accent_color.len() > 64 {
             self.accent_color.clear();
         }
@@ -329,6 +524,12 @@ pub fn get() -> AppSettings {
 /// Cheap accessor for per-frame code.
 pub fn theme() -> ThemeMode {
     SETTINGS.read().theme
+}
+
+/// The toolbar's theme (its own or the global one), cheap.
+pub fn toolbar_theme() -> ThemeMode {
+    let s = SETTINGS.read();
+    s.toolbar.theme_or(s.theme)
 }
 
 /// Persists `new` and returns the previous value.

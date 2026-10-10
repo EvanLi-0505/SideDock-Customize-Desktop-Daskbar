@@ -113,6 +113,7 @@ pub fn install_panic_hook() {
         if name == "main" {
             // the event loop is gone; free the reserved screen space immediately
             app_bar::unregister_all();
+            crate::modules::taskbar_visibility::set_hidden(false);
         }
         log::logger().flush();
         default(info);
@@ -170,6 +171,8 @@ pub fn guardian_main(parent_pid: u32) {
     {
         app_bar::remove_stale(&stale);
     }
+    // never leave the user without a taskbar
+    crate::modules::taskbar_visibility::restore_after_crash();
 
     // let a logoff/shutdown finish instead of fighting it
     std::thread::sleep(Duration::from_millis(1500));

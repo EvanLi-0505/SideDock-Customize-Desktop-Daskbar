@@ -1,0 +1,19 @@
+[package]
+name = "sidedock-tray-hook"
+version = "2.0.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Loaded into Explorer's taskbar thread by SideDock to forward notification area icon messages"
+publish = false
+
+[lib]
+name = "sidedock_tray"
+crate-type = ["cdylib"]
+
+[dependencies.windows]
+version = "0.62"
+features = [
+  "Win32_Foundation",
+  "Win32_System_DataExchange",
+  "Win32_UI_WindowsAndMessaging",
+]

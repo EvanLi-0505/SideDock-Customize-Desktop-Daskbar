@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { api, Events, on } from "@shared/ipc.ts";
-  import type { Placement } from "@shared/types.ts";
+  import { setThemeOverride } from "@shared/state/settings.svelte.ts";
+  import type { Placement, ThemeMode } from "@shared/types.ts";
   import { POPUPS } from "./registry.ts";
 
   interface RenderPayload {
@@ -10,6 +11,8 @@
     data: unknown;
     owner: string;
     placement: Placement;
+    /** the opening widget's own theme (toolbar), null = global */
+    theme: ThemeMode | null;
   }
 
   let current = $state<RenderPayload | null>(null);
@@ -24,6 +27,7 @@
 
   on<RenderPayload>(Events.PopupRender, async (payload) => {
     current = payload;
+    setThemeOverride(payload.theme ? () => payload.theme : null);
     await tick();
     // wait for images/fonts to lay out before measuring
     requestAnimationFrame(() => {

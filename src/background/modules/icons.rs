@@ -152,8 +152,13 @@ pub fn handle_request(uri: &str) -> Vec<u8> {
     get_png(path.as_deref(), umid.as_deref())
 }
 
-/// Non-blocking variant: only icons already in memory.
+/// Non-blocking variant: only icons already in memory (and tray icons, `?tray=<id>`,
+/// which only ever live in memory).
 pub fn handle_request_cached(uri: &str) -> Option<Vec<u8>> {
+    let query = uri.split_once('?').map(|(_, q)| q).unwrap_or("");
+    if let Some(id) = query_param(query, "tray") {
+        return Some(super::system_tray::icon_png(&id).unwrap_or_else(|| EMPTY_PNG.to_vec()));
+    }
     let (path, umid) = params(uri);
     memory_hit(path.as_deref(), umid.as_deref())
 }

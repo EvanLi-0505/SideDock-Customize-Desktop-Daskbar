@@ -53,6 +53,36 @@ body {
   background: var(--overlay-dim);
   animation: overlay-in 200ms var(--ease);
 
+  /* search in the middle, "All apps" at the right end */
+  .top {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .view-toggle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--overlay-glass);
+    border: 1px solid var(--overlay-border);
+    color: #fff;
+    font-size: 13px;
+    transition: background-color var(--dur-fast) ease;
+
+    &:hover {
+      background: var(--overlay-glass-hover);
+    }
+  }
+
   .search {
     display: flex;
     align-items: center;
@@ -142,6 +172,16 @@ body {
       background: var(--overlay-glass);
       box-shadow: inset 0 0 0 1px var(--overlay-border);
     }
+    /* being dragged: its place stays, faded, until the drop */
+    &.dragging {
+      opacity: 0.25;
+    }
+    /* an app held over it: they become (or it joins) a collection */
+    &.merge {
+      background: var(--overlay-glass-hover);
+      box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.7);
+      transform: scale(1.06);
+    }
 
     .name {
       max-width: 100%;
@@ -159,8 +199,118 @@ body {
     inset: 0;
     display: grid;
     place-items: center;
+    padding: 0 10vw;
     font-size: 15px;
+    line-height: 1.6;
+    text-align: center;
     color: rgb(255 255 255 / 0.7);
+  }
+
+  /* ---------- collections ---------- */
+
+  /* a collection's tile: its first apps on a glass square, like Windows 11 */
+  .folder-icon {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 6%;
+    padding: 12%;
+    border-radius: 24%;
+    background: var(--overlay-glass-hover);
+    border: 1px solid var(--overlay-border);
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.2);
+    transition: transform var(--dur) var(--ease);
+
+    img {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      object-fit: contain;
+      filter: none;
+      transform: none !important;
+    }
+  }
+  .app:hover .folder-icon {
+    transform: scale(1.06);
+  }
+
+  .folder-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    background: rgb(0 0 0 / 0.28);
+    animation: overlay-fade 140ms ease;
+  }
+
+  .folder-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    max-width: 86vw;
+    max-height: 78vh;
+    padding: 22px 26px 18px;
+    border-radius: 28px;
+    background: rgb(40 44 54 / 0.72);
+    border: 1px solid var(--overlay-border);
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+    animation: overlay-in 160ms var(--ease);
+  }
+
+  .folder-title {
+    max-width: 100%;
+    padding: 4px 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: var(--overlay-text-shadow);
+    outline: none;
+
+    &:hover {
+      background: var(--overlay-glass);
+    }
+  }
+  input.folder-title {
+    width: 320px;
+    background: var(--overlay-glass);
+    border-color: var(--overlay-border);
+    user-select: text;
+  }
+
+  .folder-grid {
+    display: grid;
+    justify-content: center;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  /* ---------- drag & drop ---------- */
+
+  .drop-marker {
+    position: fixed;
+    z-index: 8;
+    width: 3px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: 0 0 8px rgb(255 255 255 / 0.7);
+    pointer-events: none;
+  }
+
+  .drag-ghost {
+    position: fixed;
+    z-index: 9;
+    translate: -50% -50%;
+    pointer-events: none;
+    filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.45));
+    scale: 1.08;
   }
 
   .dots {
@@ -183,6 +333,7 @@ body {
 
   .notice {
     position: fixed;
+    z-index: 11;
     bottom: 64px;
     left: 50%;
     translate: -50% 0;
@@ -195,6 +346,7 @@ body {
 
   .menu {
     position: fixed;
+    z-index: 10;
     min-width: 210px;
     padding: 5px;
     border-radius: 10px;
@@ -217,6 +369,13 @@ body {
       &:hover {
         background: rgb(255 255 255 / 0.1);
       }
+    }
+
+    hr {
+      height: 1px;
+      margin: 4px 6px;
+      border: none;
+      background: rgb(255 255 255 / 0.12);
     }
   }
 }

@@ -85,11 +85,17 @@ pub fn start(app: AppHandle) {
             tick = tick.wrapping_add(1);
 
             let docks: Vec<DockState> = DOCKS.lock().values().cloned().collect();
-            let frosted = settings::theme() == ThemeMode::Glass;
+            // the toolbar may have its own theme: its targets are only there when frosted
+            let mut targets: Vec<backdrop::BackdropTarget> =
+                crate::widgets::toolbar::backdrop_targets();
+            if settings::theme() == ThemeMode::Glass {
+                targets.extend(docks.iter().filter_map(backdrop::BackdropTarget::for_dock));
+            }
+            let frosted = !targets.is_empty();
             if frosted && tick.is_multiple_of(AUTOHIDE_EVERY * 20) {
                 dark = crate::windows_api::system_colors().dark_mode;
             }
-            backdrop::sync(&docks, frosted, dark);
+            backdrop::sync(&targets, frosted, dark);
             if docks.is_empty() {
                 continue;
             }

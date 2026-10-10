@@ -12,6 +12,7 @@ pub mod dock;
 pub mod overlay;
 pub mod popup;
 pub mod settings;
+pub mod toolbar;
 pub mod tooltip;
 
 use serde::Serialize;
