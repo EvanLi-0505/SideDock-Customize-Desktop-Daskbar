@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.1.0 - 2026-10-12
+
+### Launcher bottom bar
+
+- Like the Windows start menu: the signed-in user on the left (account settings, lock,
+  sign out), shortcuts next to the power button (Settings, File Explorer, Documents,
+  Downloads, Music, Pictures, Videos, Network, personal folder) and the power button
+  (sleep, shut down, restart). Shut down, restart and sign out need a second click.
+- Settings > "Start & switcher" > "Launcher bottom bar" chooses the shortcuts. Folders
+  open where they really are (redirected to another drive or OneDrive included).
+
+### Live network and volume icons
+
+- The toolbar's network & volume item (and the dock's network module) now show the real
+  state: Wi-Fi with its signal strength, wired, no connection, connected without
+  internet; volume level and mute. The tooltip names the network and the volume.
+- Wheel over the item: volume up / down by 2% (like over the taskbar's volume icon);
+  middle click: mute.
+- Fixed: the toolbar's battery, keyboard, Bluetooth and media items were only refreshed
+  while the dock showed the same module.
+
+### Window switcher
+
+- A click on an app card (left) or on one of the small windows below the stage now only
+  selects it: it moves to the stage. A click on the stage, or a double click on a card or
+  a small window, switches to it. (A single click used to switch at once.)
+
+### Toolbar
+
+- The tray overflow flyout ("^") is as wide as its icons, 5 per row at most; more icons
+  add rows.
+
+### Memory
+
+- The popup, tooltip and launcher windows are kept hidden so they open instantly; after
+  30 seconds without use WebView2 may now release their memory (measured: about 120 MB
+  less working set). They get it back before they render again; the launcher still
+  opens in a few tens of milliseconds.
+
 ## 2.0.0 - 2026-10-11
 
 ### Fancy toolbar

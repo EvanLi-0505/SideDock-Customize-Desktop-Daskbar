@@ -36,7 +36,7 @@ use windows::Win32::{
     },
 };
 
-use super::{WidgetWindow, hwnd_of, native, set_tool_window};
+use super::{WidgetWindow, hwnd_of, memory, native, set_tool_window};
 use crate::{
     app,
     error::{Result, ResultLogExt},
@@ -192,6 +192,7 @@ fn open(app: &AppHandle, mode: Mode) -> Result<()> {
         .ok_or("overlay window is not available")?;
     let mon = cursor_monitor().ok_or("no monitor")?;
     let hwnd = hwnd_of(&window)?;
+    memory::active(app, LABEL);
     let r = mon.rect;
     unsafe {
         SetWindowPos(
@@ -269,6 +270,7 @@ pub fn hide(app: &AppHandle) {
     {
         native::hide(hwnd);
     }
+    memory::idle(LABEL);
     app::emit_to(app, LABEL, EVENT_HIDDEN, &());
 }
 

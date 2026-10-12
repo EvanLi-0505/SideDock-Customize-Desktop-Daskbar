@@ -1,6 +1,6 @@
 [package]
 name = "sidedock"
-version = "2.0.0"
+version = "2.1.0"
 description = "A portable side dock for Windows that coexists with the native taskbar"
 authors = ["SideDock contributors"]
 license = "AGPL-3.0-or-later"
@@ -30,6 +30,9 @@ png = "0.18"
 base64 = "0.22"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 windows-core = "0.62"
+# WebView2 COM interfaces (same version as wry's): memory usage target of hidden webviews
+webview2-com = "0.38"
+windows-core-061 = { package = "windows-core", version = "0.61" }
 windows-numerics = "0.3"
 
 [dependencies.windows]
@@ -39,7 +42,10 @@ features = [
   "Win32_Globalization",
   "Win32_Graphics_Dwm",
   "Win32_Graphics_Gdi",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
   "Win32_Security",
+  "Win32_Security_Authentication_Identity",
   "Win32_Storage_EnhancedStorage",
   "Win32_Storage_FileSystem",
   "Win32_System_Com",
@@ -67,6 +73,7 @@ features = [
   "Foundation",
   "Foundation_Collections",
   "Media_Control",
+  "Networking_Connectivity",
   "Storage_Streams",
   "System",
   "UI",

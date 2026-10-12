@@ -32,7 +32,7 @@ use crate::{
         popup::{self, ActionPayload, AnchorRect, Placement, PopupRequest},
         tooltip,
     },
-    windows_api::{keyboard, media, power, radios, shell, window::Window},
+    windows_api::{ComGuard, audio, keyboard, media, power, radios, shell, window::Window},
 };
 
 /// The launcher layout was saved (payload: `LauncherLayout`).
@@ -64,6 +64,10 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         // overlay
         get_start_apps,
         get_launcher_layout,
+        launcher_open_place,
+        get_user_name,
+        volume_step,
+        volume_toggle_mute,
         save_launcher_layout,
         overlay_ready,
         overlay_hide,
@@ -340,6 +344,41 @@ async fn get_start_apps() -> Vec<start_apps::StartApp> {
     start_apps::list()
 }
 
+/// Opens one of the launcher's bottom bar shortcuts (`settings::LAUNCHER_PLACES`).
+#[tauri::command]
+async fn launcher_open_place(app: AppHandle, id: String) -> Result<()> {
+    if !throttle(&format!("place:{id}"), Duration::from_millis(800)) {
+        return Ok(());
+    }
+    // shell: names of the known folders, so redirected folders (another drive, OneDrive)
+    // open where they really are
+    let target = match id.as_str() {
+        "settings" => "ms-settings:",
+        "explorer" => "explorer.exe",
+        "documents" => "shell:Personal",
+        "downloads" => "shell:Downloads",
+        "music" => "shell:My Music",
+        "pictures" => "shell:My Pictures",
+        "videos" => "shell:My Video",
+        "network" => "shell:NetworkPlacesFolder",
+        "user-folder" => "shell:UsersFilesFolder",
+        "account" => "ms-settings:yourinfo",
+        other => return Err(format!("unknown place {other}").into()),
+    };
+    overlay::hide(&app);
+    if target.starts_with("ms-settings:") {
+        shell::open_uri(target)
+    } else {
+        shell::launch(target, None, None, false)
+    }
+}
+
+/// Display name of the signed-in user ("Zhe Li"), or the account name.
+#[tauri::command]
+async fn get_user_name() -> String {
+    shell::user_display_name()
+}
+
 #[tauri::command]
 async fn get_launcher_layout() -> LauncherLayout {
     launcher_layout::get()
@@ -555,6 +594,21 @@ async fn power_action(action: power::PowerAction) -> Result<()> {
         return Ok(());
     }
     power::perform(action)
+}
+
+/// Turns the master volume up or down by `delta` percent (wheel over the volume icon).
+#[tauri::command]
+async fn volume_step(delta: i32) -> Result<()> {
+    let _com = ComGuard::new();
+    system::set_volume(audio::step(delta.clamp(-20, 20))?);
+    Ok(())
+}
+
+#[tauri::command]
+async fn volume_toggle_mute() -> Result<()> {
+    let _com = ComGuard::new();
+    system::set_volume(audio::toggle_mute()?);
+    Ok(())
 }
 
 #[tauri::command]

@@ -8,7 +8,13 @@
   保留 Windows 原生任务栏的侧边停靠栏 · A side dock that keeps your Windows taskbar
 </p>
 
+<p align="center">
+  <a href="#zh">中文</a> · <a href="#en">English</a>
+</p>
+
 ---
+
+<a name="zh"></a>
 
 SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 [Seelen UI](https://github.com/eythaann/Seelen-UI) 的 SeelenWeg，但 **默认不会隐藏系统任务栏**：
@@ -36,19 +42,25 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - **合集**（类似 Windows 开始菜单的文件夹）：右键“新建合集”并命名，或把一个应用拖到另一个应用上；
     拖到合集上即加入，打开合集后可拖动排序、拖出合集、点击标题重命名，右键可解散
   - 拖动应用和合集即可排序，拖到屏幕左右边缘翻页
+  - **底栏**（类似 Windows 开始菜单底部）：左侧是当前用户（账户设置、锁定、注销），右侧是快捷入口
+    （设置、文件资源管理器、文档、下载、音乐、图片、视频、网络、个人文件夹，可在设置里选择显示哪些）
+    和电源按钮（睡眠、关机、重启）。关机、重启、注销需要再点一次确认
   - 停靠栏 / 工具栏的开始按钮可以选择打开 Windows 开始菜单或启动台，也可以让 Win 键直接打开启动台
     （可选，需要一次管理员授权，见下方“Win 键接管”）
 - **台前调度（窗口切换）**：默认 `` Alt+` ``，可自定义。中间是所选窗口的实时预览，左侧按应用分组列出所有窗口，
-  窗口多时像停靠栏一样层叠；轻按后保持打开用鼠标点选，按住 Alt 连按则循环选择、松开即切换，
-  滚轮切换同一应用的窗口
+  窗口多时像停靠栏一样层叠；轻按后保持打开，单击左侧或下方的窗口会把它放到中间预览，
+  单击中间的大窗口或双击才会切换过去；按住 Alt 连按则循环选择、松开即切换，滚轮切换同一应用的窗口
 - **精美工具栏**（参考 Seelen UI 的 Fancy Toolbar）：横贯屏幕的状态栏，包含开始按钮、当前应用名称、
   媒体控制、键盘布局、蓝牙、网络与音量（快速设置）、电池、时钟与日历、通知、任务管理器、显示桌面
   - **系统托盘图标可以平铺显示**在工具栏上（Seelen UI 做不到），单击 / 双击 / 右键 / 中键与在任务栏上完全一致；
     哪些平铺、哪些收进“^”弹窗由你决定：像 Windows 一样直接拖动图标（拖进弹窗即收起，拖回工具栏即平铺，
     工具栏上拖动可排序），也可以在设置里逐个开关，或一键“与 Windows 任务栏一致”。
+    “^”弹窗的大小跟随收起的图标数量：每行最多 5 个，更多时向下增加行数。
     图标按应用给出的原始分辨率显示，和任务栏一样清晰。
     资源管理器自带的音量 / 网络 / 电源状态图标不会列出（Win11 下它们点击无效），由工具栏自己的
     “网络与音量”“电池”“通知”项目代替
+  - **网络与音量是实时状态**：Wi-Fi 信号强度、有线、未连接、无 Internet，音量大小与静音都会反映在图标上；
+    在图标上滚动鼠标滚轮调节音量（每格 2%），中键静音
   - “网络与音量”“通知”按钮是真正的开关：点一次打开 Windows 的快速设置 / 通知中心，再点一次关闭
     （SideDock 通过模拟系统快捷键 Win+A / Win+N 实现，见下方“工具栏与 Windows 面板”）
   - **永远不改变桌面布局**：工具栏从不占用屏幕空间（占用空间会让 Windows 重排桌面图标）。
@@ -80,6 +92,7 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 | 隐藏任务栏时 SideDock 被强制结束 | 守护进程根据 `data/runtime/taskbar-hidden` 标记立即恢复任务栏 |
 | 快速连续开关“隐藏任务栏” | 恢复时不依赖任务栏当前是否可见，一律请求显示，并在之后几秒内持续校验 |
 | 资源管理器重启 | 自动重新隐藏任务栏、重新接入系统托盘，托盘图标由各应用自动重新登记 |
+| 内存占用 | 弹窗、提示和启动台窗口常驻以保证秒开；闲置 30 秒后允许 WebView2 释放它们的内存，再次使用前自动取回 |
 | 后台线程异常 | 监控线程出错会自动重启，不会拖垮整个程序 |
 | 注销 / 关机 | 守护进程检测到系统正在关机时不会重新拉起 |
 
@@ -112,7 +125,7 @@ Windows 11 不允许普通权限的程序阻止系统开始菜单弹出，因此
   启动辅助进程，不再弹窗。
 - 这个任务**没有任何触发器**：不会开机自动运行，只在 SideDock 运行并开启该选项时由 SideDock 启动；
   SideDock 退出或崩溃时辅助进程立即退出。
-- 辅助进程不记录、不保存、不发送任何按键，只判断 Win 键是否被单独按下。Win + 其他键全部交还给系统。
+- 辅助进程不记录、不保存、不向外传输任何按键内容，只判断 Win 键是否被单独按下。Win + 其他键全部交还给系统。
 - 关闭选项会停止辅助进程并删除该计划任务（可能会再弹一次 UAC）。
 - **删除或移动 SideDock 文件夹前，请先关闭此选项。** 移动文件夹后，设置页会提示重新授权；
   如果已经直接删除了文件夹，可以在“任务计划程序”中手动删除 `SideDock Win Key`。
@@ -173,3 +186,207 @@ npm run build    # 发布构建，输出到 release/
 [GNU AGPL-3.0-or-later](LICENSE)。停靠栏的界面、状态逻辑与部分后端代码移植自
 eythaann 的 [Seelen UI](https://github.com/eythaann/Seelen-UI)（同为 AGPL-3.0），
 移植的文件在开头注明了来源。
+
+---
+
+<a name="en"></a>
+
+# SideDock (English)
+
+SideDock is a dock for the Windows desktop. Its dock is ported from the SeelenWeg of
+[Seelen UI](https://github.com/eythaann/Seelen-UI), but **it does not hide the system taskbar by default**:
+the dock sits on the left side of the screen (or any other edge) while the native taskbar stays at the
+bottom, both at the same time. You can also let SideDock's fancy toolbar replace the taskbar; hiding the
+taskbar does not change the desktop layout.
+
+## Features
+
+- **Dock** (a full port of Seelen UI's)
+  - Left / right / top / bottom, full width or fitted to its content
+  - Auto-hide: never (reserves screen space like the taskbar) / always / when a window overlaps it, with
+    adjustable show and hide delays
+  - Hides while a fullscreen app (game, video) is in the foreground
+  - Pin apps, files and shortcuts; drop them from Explorer to pin; import the Windows taskbar's pins with one click
+  - Running windows grouped by app, open / focused indicators, window count, split windows, window titles
+  - Left, center and right groups with custom separators, drag to reorder, lock the dock
+  - Mac-like wave magnification: the icon under the cursor grows and shows its name, its neighbors follow smoothly
+  - Never scrolls when there are too many apps: icons shrink first, then stack / keep shrinking / collapse
+    into a "more" button (your choice)
+  - Click to switch or minimize, a window list for apps with several windows, middle click to close or to
+    start a new instance
+  - Context menu: pin / unpin, open file location, run as administrator, close, end task
+  - Multiple monitors: primary only, or every monitor
+- **Launcher (SideDock start menu)**: a fullscreen launcher like macOS Launchpad, with search by name,
+  pinyin or initials, arrow keys and Enter, right click to pin to the dock or open the file location
+  - You decide what it shows: every app, or "only apps I added" (the others are still found by search or
+    under "All apps", and can be added); any app can be removed with a right click
+  - **Collections** (like the folders of the Windows start menu): right-click > "New collection" and name
+    it, or drop one app onto another; drop apps on a collection to add them, open it to reorder, drag apps
+    out or click its title to rename, right-click to ungroup
+  - Drag apps and collections to reorder them; hold one at the left or right screen edge to turn the page
+  - **Bottom bar** (like the bottom of the Windows start menu): the signed-in user on the left (account
+    settings, lock, sign out), shortcuts on the right (Settings, File Explorer, Documents, Downloads, Music,
+    Pictures, Videos, Network, personal folder; chosen in the settings) and the power button (sleep, shut
+    down, restart). Shut down, restart and sign out need a second click
+  - The start button of the dock / toolbar opens the Windows start menu or the launcher, and the Win key
+    can open the launcher directly (optional, needs administrator rights once, see "Win key takeover")
+- **Window switcher (stage manager)**: `` Alt+` `` by default, customizable. A live preview of the selected
+  window in the center, every window grouped by app on the left, stacked like the dock's icons when there
+  are many. After a tap it stays open: a click on a window on the left or below only moves it to the
+  center; a click on the center window, or a double click, switches to it. Hold Alt and press the key
+  repeatedly to cycle, release to switch; the wheel steps through the windows of the same app
+- **Fancy toolbar** (after Seelen UI's Fancy Toolbar): a status bar across the screen with the start button,
+  the current app's name, media controls, keyboard layout, Bluetooth, network & volume (quick settings),
+  battery, clock and calendar, notifications, Task Manager, show desktop
+  - **System tray icons can be shown inline** on the toolbar (Seelen UI cannot). Click, double click, right
+    click and middle click work exactly as on the taskbar. You choose which icons stay on the toolbar and
+    which go into the "^" flyout: drag them like on Windows (into the flyout to hide, back onto the toolbar
+    to show, along the toolbar to reorder), switch them one by one in the settings, or use "Same as the
+    Windows taskbar". The flyout is as large as the icons it holds: 5 per row at most, more icons add rows.
+    Icons are shown at the resolution the application provides, as sharp as on the taskbar.
+    Explorer's own volume / network / power status icons are not listed (they ignore clicks on Windows 11);
+    the toolbar's "network & volume", "battery" and "notifications" items replace them
+  - **Network and volume are live**: Wi-Fi signal strength, wired, not connected, no internet, volume level
+    and mute all show on the icons; turn the mouse wheel over them to change the volume (2% per notch),
+    middle click to mute
+  - The "network & volume" and "notifications" buttons are real toggles: one click opens the Windows quick
+    settings / notification center, another closes it (SideDock sends the system shortcuts Win+A / Win+N,
+    see "The toolbar and the Windows flyouts")
+  - **Never changes the desktop layout**: the toolbar never reserves screen space (reserving space makes
+    Windows rearrange the desktop icons). At the bottom with the Windows taskbar hidden, it takes the
+    taskbar's exact place; anywhere else it floats over windows and can "hide when a window overlaps it" or
+    "always hide" (it comes back when the cursor reaches the screen edge)
+  - Customizable: drag items between the left, center and right sections or hide them; adjust the height,
+    the content size (80%–140%) and the show / hide delays
+  - **Its own theme**: same as the dock, or one of the five themes with its own opacity
+  - Hides while a fullscreen app is in the foreground
+- **Optional: hide the Windows taskbar without changing the desktop layout**: only the taskbar window is
+  hidden, the screen area it reserves stays, so desktop icons and maximized windows do not move (on 16:9,
+  16:10 or any other screen; the desktop is not rearranged as it is with Seelen UI). The taskbar comes back
+  when SideDock exits, even unexpectedly
+- **Modules**: start menu, show desktop, recycle bin, clock and calendar, keyboard layout selector, media
+  player, power and battery, Bluetooth, network, notifications, Task Manager
+- **Home / settings**: five themes (frosted glass, clear glass, dark, light, follow the system), custom
+  accent color, Chinese and English, start with Windows, cards to view and clear logs / user data / cache
+- **Shortcuts**: customizable global shortcuts (show / hide the dock, open the settings, open the launcher,
+  window switcher), with conflict detection against Windows and other programs while recording
+- **Portable**: nothing is written to `C:\Users\...\AppData`; all data lives in the `data` folder next to
+  the program (the only exceptions are listed under "Data folder", and both are optional)
+
+## Built to be robust
+
+| Situation | What happens |
+| --- | --- |
+| Started several times | Single-instance lock: another start only brings up the running instance's settings window |
+| Fast repeated clicks | Launch, power and similar actions are throttled in the backend; window creation is guarded against re-entry |
+| Killed / crashed | A guardian process releases the screen space reserved by the dock and restarts SideDock (it stops after more than 3 times in 2 minutes) |
+| Power loss or kill while saving settings | Atomic writes (temporary file + rename) with a `.bak` copy; a damaged file falls back automatically |
+| SideDock killed while the taskbar is hidden | The guardian restores the taskbar at once, from the `data/runtime/taskbar-hidden` marker |
+| "Hide the taskbar" switched on and off quickly | Restoring never relies on the taskbar's current visibility: it always asks for it to be shown, and checks again for a few seconds |
+| Explorer restarts | The taskbar is hidden again and the system tray is reconnected; applications register their tray icons again by themselves |
+| Memory | The popup, tooltip and launcher windows stay alive to open instantly; after 30 seconds idle WebView2 may release their memory, and they get it back before they are used again |
+| A background thread fails | Watcher threads restart on errors and cannot take the whole program down |
+| Sign out / shut down | The guardian does not restart SideDock while Windows is shutting down |
+
+## Data folder
+
+```
+SideDock.exe
+sidedock_tray.dll   system tray component (loaded by Explorer only while the toolbar shows the tray)
+data/
+  config/    settings.json, dock_items.json, launcher_layout.json (and .bak copies)
+  logs/      rolling logs (one per day, 10 kept at most)
+  userdata/  WebView2 profile
+  cache/     application icon cache
+  runtime/   session lock, crash record, taskbar-hidden marker
+```
+
+Only two things are written outside the program folder, each only when you turn its option on, and removed
+when you turn it off:
+
+| Option | Written to | Size |
+| --- | --- | --- |
+| Start with Windows | Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SideDock` | one string value |
+| Win key opens the SideDock launcher | Scheduled task `SideDock Win Key` (`C:\Windows\System32\Tasks\SideDock Win Key` and its registry entries) | a few KB |
+
+### Win key takeover
+
+Windows 11 does not let a non-elevated program keep the system start menu from opening, so this option is
+carried out by a tiny **administrator helper process** (`SideDock.exe --win-key-helper`). It only watches
+the Win key; the rest of SideDock keeps running without elevation.
+
+- Turning the option on shows one UAC prompt, to register the scheduled task `SideDock Win Key`. From then
+  on SideDock starts the helper with administrator rights through that task, without further prompts.
+- The task has **no trigger**: it never runs at startup, only when SideDock is running with the option on;
+  the helper exits as soon as SideDock exits or crashes.
+- The helper does not record, store or transmit what you type; it only decides whether the Win key was
+  pressed alone. Win + other keys are all left to Windows.
+- Turning the option off stops the helper and deletes the task (this may show one more UAC prompt).
+- **Turn this option off before deleting or moving the SideDock folder.** After moving the folder, the
+  settings page asks you to authorize again; if you already deleted the folder, delete `SideDock Win Key`
+  by hand in Task Scheduler.
+- Administrator rights combined with a global keyboard hook may be flagged by some security software;
+  this is a false positive.
+
+### How the system tray gets onto the toolbar
+
+Applications register their tray icons with Explorer's taskbar window through `Shell_NotifyIcon`. Like
+Seelen UI, SideDock uses a window message hook to load `sidedock_tray.dll` into Explorer's taskbar thread.
+It only forwards **a copy** of those registrations to SideDock; the original messages still reach the
+taskbar, whose behavior and notification area are not affected.
+
+- It is loaded only while the fancy toolbar is on and its items include "System tray"; turning the option
+  off or exiting SideDock unloads it.
+- "Same as the Windows taskbar" only reads the tray settings Windows keeps
+  (`HKCU\Control Panel\NotifyIconSettings`); nothing is written to the registry.
+- The DLL reads no files and no keystrokes, needs no administrator rights and writes no data.
+- Explorer may keep the DLL loaded for a moment after SideDock exits. If replacing or deleting the SideDock
+  folder then reports "file in use", wait a few seconds or restart Explorer.
+
+### The toolbar and the Windows flyouts
+
+- Windows offers no way to close the quick settings / notification center; only the system shortcuts
+  Win+A and Win+N really toggle them. So when you click the toolbar's "network & volume" or
+  "notifications" button, SideDock **sends those shortcuts**.
+  SideDock sends system shortcuts only when you click the matching button, in four places: the Windows
+  start menu (Win), show desktop (Win+D), quick settings (Win+A) and the notification center (Win+N).
+  Apart from that, only with "Win key takeover" on, the helper sends one key that does nothing at the
+  moment you press the Win key alone, to keep the system start menu from opening.
+- These flyouts open against the top edge of the taskbar, above every ordinary window. A toolbar floating
+  above the visible taskbar gets one of its ends covered by them; its items then move aside so the
+  buttons, the tray and the clock stay visible and clickable, and move back when the flyout closes.
+  A toolbar in the hidden taskbar's place is not covered.
+
+## Usage
+
+1. Download `SideDock_<version>_x64_portable.zip` from Releases
+2. Unzip it to any folder **you can write to** (for example `D:\Apps\SideDock`); keep `SideDock.exe` and
+   `sidedock_tray.dll` in the same folder
+3. Run `SideDock.exe`. The first run opens the settings home page; later, open it from the tray icon
+
+Upgrading: exit the old version, unzip the new one and copy the `data` folder from the old folder to keep
+all your settings.
+
+Requirements: Windows 10 / 11 x64 with the WebView2 Runtime (included in Windows 11).
+
+## Development
+
+Prerequisites: Node.js 20+, Rust (stable), Visual Studio 2022 C++ build tools.
+
+```bash
+npm install
+npm run dev      # development mode (Vite hot reload + Tauri)
+npm run check    # frontend type check + cargo check
+npm run build    # release build, output in release/
+```
+
+In development mode data is written to `data/` in the repository root (ignored by git).
+The `SIDEDOCK_DATA_DIR` environment variable selects another data folder.
+
+The project layout is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## License
+
+[GNU AGPL-3.0-or-later](LICENSE). The dock's interface, state logic and parts of the backend are ported
+from eythaann's [Seelen UI](https://github.com/eythaann/Seelen-UI) (also AGPL-3.0); ported files say so at
+the top.

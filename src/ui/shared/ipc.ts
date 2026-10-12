@@ -114,6 +114,9 @@ export const api = {
   powerAction: (action: "lock" | "signOut" | "sleep" | "hibernate" | "restart" | "shutdown") =>
     fire(invoke("power_action", { action })),
   emptyRecycleBin: () => fire(invoke("empty_recycle_bin")),
+  /** master volume up / down by `delta` percent */
+  volumeStep: (delta: number) => fire(invoke("volume_step", { delta })),
+  volumeToggleMute: () => fire(invoke("volume_toggle_mute")),
 
   // popup & tooltip
   popupOpen: (request: {
@@ -163,6 +166,9 @@ export const api = {
   // overlay: launcher & window switcher
   getStartApps: () => invoke<StartApp[]>("get_start_apps"),
   getLauncherLayout: () => invoke<LauncherLayout>("get_launcher_layout"),
+  /** a shortcut of the launcher's bottom bar, or "account" (account settings) */
+  launcherOpenPlace: (id: string) => fire(invoke("launcher_open_place", { id })),
+  getUserName: () => invoke<string>("get_user_name"),
   saveLauncherLayout: (layout: LauncherLayout) => invoke<LauncherLayout>("save_launcher_layout", { layout }),
   overlayReady: (token: number) => fire(invoke("overlay_ready", { token })),
   overlayHide: () => fire(invoke("overlay_hide")),

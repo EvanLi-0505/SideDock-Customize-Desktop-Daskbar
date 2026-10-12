@@ -20,7 +20,8 @@ src/
                          system tray (receiver of the Explorer hook), taskbar visibility,
                          shell flyouts (quick settings / notification center toggles)
     widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
-                         tooltip, overlay (launcher / window switcher), toolbar, settings
+                         tooltip, overlay (launcher / window switcher), toolbar, settings;
+                         memory (releases the memory of idle helper windows)
     windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media...)
   ui/                    Svelte 5 frontend (Vite, multi-page)
     shared/              types mirrored from Rust, IPC, i18n, themes, components

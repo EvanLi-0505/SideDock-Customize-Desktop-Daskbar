@@ -3155,7 +3155,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "sidedock"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "base64 0.22.1",
  "log",
@@ -3170,7 +3170,9 @@ dependencies = [
  "tauri-plugin-single-instance",
  "time",
  "uuid",
+ "webview2-com",
  "windows 0.62.2",
+ "windows-core 0.61.2",
  "windows-core 0.62.2",
  "windows-numerics 0.3.1",
  "winreg",
@@ -3178,7 +3180,7 @@ dependencies = [
 
 [[package]]
 name = "sidedock-tray-hook"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "windows 0.62.2",
 ]

@@ -57,11 +57,25 @@ export interface WinKeyState {
 /** All = the user's layout followed by every other app; Pinned = only the layout */
 export type LauncherContent = "All" | "Pinned";
 
+/** Keep in sync with LAUNCHER_PLACES in src/background/state/settings.rs */
+export type LauncherPlaceId =
+  | "settings"
+  | "explorer"
+  | "documents"
+  | "downloads"
+  | "music"
+  | "pictures"
+  | "videos"
+  | "network"
+  | "user-folder";
+
 export interface LauncherSettings {
   startMenu: StartMenuMode;
   takeOverWinKey: boolean;
   iconSize: number;
   content: LauncherContent;
+  /** shortcuts of the launcher's bottom bar, in order */
+  places: LauncherPlaceId[];
 }
 
 export type ToolbarPosition = "Top" | "Bottom";
@@ -260,12 +274,30 @@ export interface MediaInfo {
   thumbnail: string | null;
 }
 
+export interface NetworkStatus {
+  kind: "none" | "wifi" | "ethernet" | "cellular";
+  /** reaches the internet, not only the local network */
+  internet: boolean;
+  /** 0-5 bars, wireless only */
+  signal: number | null;
+  name: string;
+}
+
+export interface VolumeStatus {
+  /** 0-100 */
+  level: number;
+  muted: boolean;
+}
+
 export interface SystemState {
   power: PowerStatus | null;
   keyboard: KeyboardLayout[];
   recycleBin: RecycleBinInfo | null;
   media: MediaInfo | null;
   bluetooth: boolean | null;
+  network: NetworkStatus | null;
+  /** null = no playback device */
+  volume: VolumeStatus | null;
 }
 
 export type Placement = "right" | "left" | "above" | "below";

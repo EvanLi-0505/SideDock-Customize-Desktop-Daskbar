@@ -104,7 +104,24 @@ pub struct LauncherSettings {
     pub icon_size: u32,
     /// every app, or only the apps the user added (see `state/launcher_layout.rs`)
     pub content: LauncherContent,
+    /// shortcuts in the launcher's bottom bar, in order (see `LAUNCHER_PLACES`); the user
+    /// and the power button are always there
+    pub places: Vec<String>,
 }
+
+/// Shortcuts the launcher's bottom bar can show, like the folders next to the power
+/// button of the Windows start menu. Keep in sync with `src/ui/shared/launcherPlaces.ts`.
+pub const LAUNCHER_PLACES: &[&str] = &[
+    "settings",
+    "explorer",
+    "documents",
+    "downloads",
+    "music",
+    "pictures",
+    "videos",
+    "network",
+    "user-folder",
+];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LauncherContent {
@@ -121,6 +138,9 @@ impl Default for LauncherSettings {
             take_over_win_key: false,
             icon_size: 64,
             content: LauncherContent::All,
+            places: ["settings", "explorer", "downloads"]
+                .map(String::from)
+                .to_vec(),
         }
     }
 }
@@ -128,6 +148,9 @@ impl Default for LauncherSettings {
 impl LauncherSettings {
     fn sanitize(&mut self) {
         self.icon_size = self.icon_size.clamp(40, 96);
+        let mut seen = std::collections::HashSet::new();
+        self.places
+            .retain(|p| LAUNCHER_PLACES.contains(&p.as_str()) && seen.insert(p.clone()));
     }
 
     /// The Win key hook is only wanted when the SideDock start menu is selected.

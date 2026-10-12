@@ -4,7 +4,9 @@
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api } from "@shared/ipc.ts";
   import { moduleMeta } from "@shared/modules.ts";
+  import { networkIcon, networkTip } from "@shared/statusIcons.ts";
   import type { ModuleDockItem } from "@shared/types.ts";
+  import { systemState } from "../../state/system.svelte.ts";
   import { showItemMenu } from "../../menus.svelte.ts";
   import { tooltip } from "../../overlays.ts";
   import { shouldSuppressClick } from "../../sortable.svelte.ts";
@@ -48,7 +50,8 @@
     tabindex="-1"
     class="weg-item weg-module"
     data-module={item.module}
-    use:tooltip={() => t(`module.${item.module}` as never)}
+    use:tooltip={() =>
+      item.module === "network" ? networkTip(systemState.system.network) : t(`module.${item.module}` as never)}
     onclick={onClick}
     oncontextmenu={onContextMenu}
     onkeydown={() => {}}
@@ -60,6 +63,8 @@
         <rect x="2" y="12.5" width="9.5" height="9.5" rx="1.6" />
         <rect x="12.5" y="12.5" width="9.5" height="9.5" rx="1.6" />
       </svg>
+    {:else if item.module === "network"}
+      <Icon name={networkIcon(systemState.system.network)} class="weg-module-icon" />
     {:else}
       <Icon name={meta.icon} class="weg-module-icon" />
     {/if}

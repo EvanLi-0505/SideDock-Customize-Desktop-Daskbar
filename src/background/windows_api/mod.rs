@@ -2,11 +2,13 @@
 //! Nothing in here knows about Tauri or about settings.
 
 pub mod app_bar;
+pub mod audio;
 pub mod event_hook;
 pub mod icons;
 pub mod keyboard;
 pub mod media;
 pub mod monitor;
+pub mod network;
 pub mod power;
 pub mod radios;
 pub mod shell;

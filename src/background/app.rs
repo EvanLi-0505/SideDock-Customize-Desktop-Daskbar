@@ -215,6 +215,15 @@ pub fn run() {
             widgets::popup::create(&handle)?;
             widgets::tooltip::create(&handle)?;
             widgets::overlay::create(&handle)?;
+            // hidden until first used: their memory can be released meanwhile
+            for label in [
+                widgets::popup::LABEL,
+                widgets::tooltip::LABEL,
+                widgets::overlay::LABEL,
+            ] {
+                widgets::memory::idle(label);
+            }
+            widgets::memory::start(handle.clone());
             start_apps::refresh();
             win_key::sync(&handle);
             widgets::dock::start(handle.clone());

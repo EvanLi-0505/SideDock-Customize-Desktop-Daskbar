@@ -12,7 +12,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
-use super::{WidgetWindow, hwnd_of, native, set_rounded_corners, set_tool_window};
+use super::{WidgetWindow, hwnd_of, memory, native, set_rounded_corners, set_tool_window};
 use crate::{
     app,
     error::Result,
@@ -199,6 +199,7 @@ fn close_internal(window: &WebviewWindow, by_blur: bool) {
     if let Ok(hwnd) = hwnd_of(window) {
         native::hide(hwnd);
     }
+    memory::idle(LABEL);
     if let Some(owner) = owner {
         app::emit_to(window.app_handle(), &owner, EVENT_CLOSED, &by_blur);
     }
@@ -222,6 +223,7 @@ pub fn open(app: &AppHandle, caller: &WebviewWindow, request: PopupRequest) -> R
         }
     }
 
+    memory::active(app, LABEL);
     let scale = caller.scale_factor()?;
     let origin = caller.inner_position()?;
     let a = request.anchor;

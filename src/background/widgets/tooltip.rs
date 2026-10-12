@@ -13,7 +13,7 @@ use windows::Win32::{
 };
 
 use super::{
-    WidgetWindow, hwnd_of, native,
+    WidgetWindow, hwnd_of, memory, native,
     popup::{AnchorRect, Placement},
     set_rounded_corners, set_tool_window,
 };
@@ -123,6 +123,7 @@ pub fn show(
     placement: Placement,
 ) -> Result<()> {
     let rect = to_screen(caller, anchor)?;
+    memory::active(app, LABEL);
     let token = {
         let mut state = STATE.lock();
         state.token += 1;
@@ -211,4 +212,5 @@ pub fn hide(app: &AppHandle) {
     {
         native::hide(hwnd);
     }
+    memory::idle(LABEL);
 }

@@ -10,6 +10,8 @@ let system = $state<SystemState>({
   recycleBin: null,
   media: null,
   bluetooth: null,
+  network: null,
+  volume: null,
 });
 let hidden = $state(false);
 

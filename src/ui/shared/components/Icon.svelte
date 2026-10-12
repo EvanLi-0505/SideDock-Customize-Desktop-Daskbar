@@ -9,6 +9,21 @@
   import FolderPlus from "@lucide/svelte/icons/folder-plus";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import CircleUserRound from "@lucide/svelte/icons/circle-user-round";
+  import Download from "@lucide/svelte/icons/download";
+  import EthernetPort from "@lucide/svelte/icons/ethernet-port";
+  import FileText from "@lucide/svelte/icons/file-text";
+  import Globe from "@lucide/svelte/icons/globe";
+  import Image from "@lucide/svelte/icons/image";
+  import Network from "@lucide/svelte/icons/network";
+  import Video from "@lucide/svelte/icons/video";
+  import Volume from "@lucide/svelte/icons/volume";
+  import Volume1 from "@lucide/svelte/icons/volume-1";
+  import VolumeX from "@lucide/svelte/icons/volume-x";
+  import WifiHigh from "@lucide/svelte/icons/wifi-high";
+  import WifiLow from "@lucide/svelte/icons/wifi-low";
+  import WifiOff from "@lucide/svelte/icons/wifi-off";
+  import WifiZero from "@lucide/svelte/icons/wifi-zero";
   import Battery from "@lucide/svelte/icons/battery";
   import BatteryCharging from "@lucide/svelte/icons/battery-charging";
   import BatteryFull from "@lucide/svelte/icons/battery-full";
@@ -133,6 +148,21 @@
     Sun,
     Trash2,
     Volume2,
+    CircleUserRound,
+    Download,
+    EthernetPort,
+    FileText,
+    Globe,
+    Image,
+    Network,
+    Video,
+    Volume,
+    Volume1,
+    VolumeX,
+    WifiHigh,
+    WifiLow,
+    WifiOff,
+    WifiZero,
     ArrowLeft,
     ChevronDown,
     ChevronUp,

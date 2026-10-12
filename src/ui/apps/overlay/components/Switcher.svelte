@@ -3,6 +3,10 @@
      the left. Previews are live DWM thumbnails: this page only computes their rects
      (CSS px) and draws the frames, labels and selection around them.
 
+     Mouse: a click on an app card or on one of the small windows below the stage only
+     selects it (it moves to the stage); a click on the stage, or a double click on a card
+     or a small window, switches to it.
+
      Keyboard: the switcher shortcut (backend hotkey) steps forward; Tab / arrows move,
      Enter switches, Esc closes. Releasing the shortcut's modifier after several presses
      switches (handled by the backend, see widgets/overlay.rs). -->
@@ -112,6 +116,31 @@
 
   function activate(w: UserAppWindow | undefined) {
     if (w) api.activateWindow(w.hwnd);
+  }
+
+  // Selecting moves the cards (the stack re-centers on the selection), so the second
+  // click of a double click may land on another card: double clicks are recognized
+  // here, by time and position, and always switch to the window clicked first.
+  const DOUBLE_CLICK_MS = 400;
+  const DOUBLE_CLICK_PX = 8;
+  let lastPick: { hwnd: number; at: number; x: number; y: number } | null = null;
+
+  /** Click on a card or a small window: select it; double click: switch to it. */
+  function pick(e: MouseEvent, w: UserAppWindow) {
+    const now = performance.now();
+    const again =
+      lastPick &&
+      now - lastPick.at < DOUBLE_CLICK_MS &&
+      Math.hypot(e.clientX - lastPick.x, e.clientY - lastPick.y) < DOUBLE_CLICK_PX;
+    if (again) {
+      const first = ordered.find((x) => x.hwnd === lastPick!.hwnd);
+      lastPick = null;
+      activate(first ?? w);
+      return;
+    }
+    lastPick = { hwnd: w.hwnd, at: now, x: e.clientX, y: e.clientY };
+    const index = ordered.indexOf(w);
+    if (index >= 0) selected = index;
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -346,7 +375,7 @@
       class="card"
       class:active={currentGroup === group}
       style="{px(card)};z-index:{z}"
-      onclick={() => activate(w)}
+      onclick={(e) => pick(e, w)}
     >
       <span class="label">
         <img src={iconUrl(w.path, w.umid)} alt="" draggable="false" />
@@ -393,7 +422,7 @@
         class:active={s.window === current}
         style="{px(s.frame)};z-index:{s.z}"
         aria-label={s.window.title}
-        onclick={() => activate(s.window)}
+        onclick={(e) => pick(e, s.window)}
       >
         {#if s.window.isIconic}
           <img src={iconUrl(s.window.path, s.window.umid)} alt="" draggable="false" />

@@ -9,6 +9,7 @@
 //! shown natively and strips `WS_EX_TOOLWINDOW`. Never mix the two on those windows.
 
 pub mod dock;
+pub mod memory;
 pub mod overlay;
 pub mod popup;
 pub mod settings;
@@ -62,6 +63,31 @@ impl WidgetWindow<'_> {
             .title(format!("SideDock {}", self.widget))
             .visible(false))
     }
+}
+
+/// Tells WebView2 whether a window's page is in use. Hidden helper windows (popup,
+/// tooltip, launcher) are kept alive so they open instantly; with the low target their
+/// memory may be swapped out meanwhile, which is what Task Manager shows as usage.
+pub fn set_memory_low(window: &WebviewWindow, low: bool) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        ICoreWebView2_19,
+    };
+    use windows_core_061::Interface;
+
+    let level = if low {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+    } else {
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+    };
+    // runs on the main thread; older WebView2 runtimes simply lack the interface
+    let _ = window.with_webview(move |webview| unsafe {
+        if let Ok(core) = webview.controller().CoreWebView2()
+            && let Ok(core) = core.cast::<ICoreWebView2_19>()
+        {
+            let _ = core.SetMemoryUsageTargetLevel(level);
+        }
+    });
 }
 
 pub fn hwnd_of(window: &WebviewWindow) -> Result<isize> {

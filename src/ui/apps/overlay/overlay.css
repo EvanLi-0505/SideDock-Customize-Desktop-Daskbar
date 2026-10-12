@@ -331,10 +331,88 @@ body {
     }
   }
 
+  /* ---------- bottom bar: user, shortcuts, power ---------- */
+
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    width: min(880px, 86vw);
+    height: 52px;
+    margin-top: 14px;
+    padding: 0 10px;
+    border-radius: 16px;
+    background: var(--overlay-glass);
+    border: 1px solid var(--overlay-border);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+  }
+
+  .footer-side {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .footer-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 13.5px;
+    transition: background-color var(--dur-fast) ease;
+
+    &:hover,
+    &.active {
+      background: var(--overlay-glass-hover);
+    }
+    &.user {
+      padding: 0 12px 0 6px;
+    }
+  }
+
+  .avatar {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.18);
+  }
+
+  .user-name {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: var(--overlay-text-shadow);
+  }
+
+  /* opens above its button */
+  .menu.footer-menu {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+
+    &.power {
+      left: auto;
+      right: 0;
+    }
+    button.armed {
+      background: rgb(229 72 77 / 0.75);
+    }
+  }
+
   .notice {
     position: fixed;
     z-index: 11;
-    bottom: 64px;
+    bottom: 130px;
     left: 50%;
     translate: -50% 0;
     padding: 8px 16px;

@@ -19,6 +19,8 @@
   /** an icon from the toolbar is dragged over this flyout */
   let incoming = $state<TrayIcon | null>(null);
   let dragging = $state<string | null>(null);
+  /** as wide as its icons, 5 per row at most: more icons add rows, not width */
+  const columns = $derived(Math.max(1, Math.min(5, icons.length + (incoming ? 1 : 0))));
 
   onMount(() => {
     const changed = on<TrayIcon[]>(Events.SystemTrayChanged, (list) => (all = list));
@@ -47,7 +49,7 @@
 </script>
 
 <div class="popup-surface tray-overflow" class:drop={!!incoming} role="presentation" onkeydown={(e) => e.key === "Escape" && close()}>
-  <div class="grid">
+  <div class="grid" style:grid-template-columns="repeat({columns}, 40px)">
     {#each icons as icon (icon.id)}
       <button
         type="button"
@@ -80,7 +82,6 @@
 <style>
   .tray-overflow {
     padding: 8px;
-    min-width: 136px;
     max-width: 232px;
     transition: box-shadow var(--dur-fast) ease;
 
@@ -93,7 +94,6 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(5, 40px);
     gap: 2px;
   }
 
@@ -127,8 +127,9 @@
     }
   }
 
+  /* only shown when the flyout is empty */
   .hint {
-    max-width: 210px;
+    width: 180px;
     margin: 2px 4px;
     color: var(--fg-muted);
     font-size: 11px;

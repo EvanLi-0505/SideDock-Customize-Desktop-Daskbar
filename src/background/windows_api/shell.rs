@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use windows::{
     Win32::{
+        Security::Authentication::Identity::{GetUserNameExW, NameDisplay},
         Storage::{
             EnhancedStorage::PKEY_AppUserModel_ID,
             FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW},
@@ -20,7 +21,7 @@ use windows::{
             WindowsAndMessaging::{SHOW_WINDOW_CMD, SW_SHOWNORMAL},
         },
     },
-    core::{HSTRING, PCWSTR},
+    core::{HSTRING, PCWSTR, PWSTR},
 };
 
 use super::{ComGuard, from_wide, to_wide};
@@ -116,6 +117,24 @@ fn send_chord(keys: &[VIRTUAL_KEY]) {
     inputs.extend(keys.iter().rev().map(|k| key_input(*k, true)));
     unsafe {
         SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+    }
+}
+
+/// Display name of the signed-in user ("Zhe Li"); the account name when Windows has no
+/// display name for it (most local accounts).
+pub fn user_display_name() -> String {
+    let mut buf = [0u16; 256];
+    let mut len = buf.len() as u32;
+    let ok = unsafe { GetUserNameExW(NameDisplay, Some(PWSTR(buf.as_mut_ptr())), &mut len) };
+    let name = if ok {
+        String::from_utf16_lossy(&buf[..(len as usize).min(buf.len())])
+    } else {
+        String::new()
+    };
+    if name.trim().is_empty() {
+        std::env::var("USERNAME").unwrap_or_default()
+    } else {
+        name
     }
 }
 

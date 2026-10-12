@@ -22,6 +22,7 @@
   import { search, startApps } from "../state/apps.svelte.ts";
   import { launcherLayout, layoutActions, type Tile } from "../state/layout.svelte.ts";
   import { wheelStepper } from "../wheel.ts";
+  import LauncherFooter from "./LauncherFooter.svelte";
 
   type FolderTile = Extract<Tile, { kind: "folder" }>;
 
@@ -35,6 +36,8 @@
   let gridWidth = $state(0);
   let gridHeight = $state(0);
   let notice = $state("");
+  /** open menu of the bottom bar (user / power) */
+  let footerMenu = $state<"user" | "power" | null>(null);
 
   const iconSize = $derived(settingsState.value.launcher.iconSize);
   const cellWidth = $derived(iconSize + 64);
@@ -172,6 +175,10 @@
       if (e.key === "Escape") menu = null;
       return;
     }
+    if (footerMenu) {
+      if (e.key === "Escape") footerMenu = null;
+      return;
+    }
     if (renaming) {
       if (e.key === "Enter") commitRename();
       else if (e.key === "Escape") renaming = false;
@@ -227,7 +234,7 @@
   const stepper = wheelStepper((direction) => turn(direction));
 
   function onWheel(e: WheelEvent) {
-    if (menu || e.ctrlKey) return;
+    if (menu || footerMenu || e.ctrlKey) return;
     // an open collection scrolls by itself
     if (openFolder) return;
     const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
@@ -496,8 +503,10 @@
   role="presentation"
   bind:this={root}
   onclick={(e) => {
-    if (menu) menu = null;
-    else if (e.target === e.currentTarget) api.overlayHide();
+    if (menu || footerMenu) {
+      menu = null;
+      footerMenu = null;
+    } else if (e.target === e.currentTarget) api.overlayHide();
   }}
   oncontextmenu={() => (menu = null)}
 >
@@ -579,6 +588,8 @@
       {/each}
     </div>
   {/if}
+
+  <LauncherFooter bind:open={footerMenu} />
 
   {#if openFolder}
     {@const folder = openFolder}

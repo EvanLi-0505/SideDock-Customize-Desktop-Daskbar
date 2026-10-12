@@ -3,6 +3,7 @@
   import Icon from "@shared/components/Icon.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api } from "@shared/ipc.ts";
+  import { networkIcon, networkTip, volumeIcon, volumeTip } from "@shared/statusIcons.ts";
   import type { ToolbarItemId } from "@shared/types.ts";
   import Clock from "./Clock.svelte";
   import Media from "./Media.svelte";
@@ -29,6 +30,13 @@
   );
 
   let el: HTMLButtonElement | null = $state(null);
+
+  /** one wheel notch = 2%, like over the taskbar's volume icon */
+  function volumeWheel(e: WheelEvent) {
+    if (!e.deltaY) return;
+    e.preventDefault();
+    api.volumeStep(e.deltaY < 0 ? 2 : -2);
+  }
 
   /** right click: a single "settings" entry */
   function settingsMenu(e: MouseEvent, label: string, action: string) {
@@ -90,16 +98,21 @@
     </button>
   {/if}
 {:else if id === "quick-settings"}
-  <!-- like the Windows 11 taskbar: network + volume open quick settings -->
+  <!-- like the Windows 11 taskbar: live network + volume icons, a click opens quick
+       settings, the wheel changes the volume, the middle button mutes -->
   <button
     type="button"
     class="tb-button"
-    use:tooltip={() => t("toolbar.quickSettings")}
+    class:dim={system.network?.kind === "none"}
+    use:tooltip={() => `${networkTip(system.network)} · ${volumeTip(system.volume)}`}
     onclick={() => api.shellAction("quick-settings")}
     oncontextmenu={(e) => settingsMenu(e, t("item_menu.settings"), "network-settings")}
+    onwheel={volumeWheel}
+    onauxclick={(e) => e.button === 1 && api.volumeToggleMute()}
+    onmousedown={(e) => e.button === 1 && e.preventDefault()}
   >
-    <Icon name="Wifi" />
-    <Icon name="Volume2" />
+    <Icon name={networkIcon(system.network)} />
+    <Icon name={volumeIcon(system.volume)} />
   </button>
 {:else if id === "battery"}
   <button

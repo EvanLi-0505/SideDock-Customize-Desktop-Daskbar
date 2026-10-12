@@ -8,7 +8,8 @@
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api, Events, on } from "@shared/ipc.ts";
   import { acceleratorKeys } from "@shared/shortcuts.ts";
-  import type { LauncherContent, StartMenuMode, WinKeyState } from "@shared/types.ts";
+  import { LAUNCHER_PLACES } from "@shared/launcherPlaces.ts";
+  import type { LauncherContent, LauncherPlaceId, StartMenuMode, WinKeyState } from "@shared/types.ts";
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import { editor } from "../state/editor.svelte.ts";
@@ -34,6 +35,15 @@
       unlisten.then((f) => f());
     };
   });
+
+  /** bottom bar shortcuts keep the catalog's order, like the Windows start menu */
+  function setPlace(id: LauncherPlaceId, shown: boolean) {
+    editor.update((s) => {
+      const wanted = new Set(s.launcher.places.filter((p) => p !== id));
+      if (shown) wanted.add(id);
+      s.launcher.places = LAUNCHER_PLACES.map((p) => p.id).filter((p) => wanted.has(p));
+    });
+  }
 
   async function setWinKey(enabled: boolean) {
     winKeyBusy = true;
@@ -133,6 +143,19 @@
     </SettingsRow>
   </SettingsGroup>
 
+  <SettingsGroup title={t("launcherPage.places")}>
+    <p class="places-hint">{t("launcherPage.placesHint")}</p>
+    <div class="places">
+      {#each LAUNCHER_PLACES as place (place.id)}
+        <label class="place">
+          <Icon name={place.icon} size={16} />
+          <span>{t(place.label)}</span>
+          <Switch checked={launcher.places.includes(place.id)} onchange={(v) => setPlace(place.id, v)} />
+        </label>
+      {/each}
+    </div>
+  </SettingsGroup>
+
   <SettingsGroup title={t("launcherPage.switcher")}>
     <SettingsRow label={t("launcherPage.shortcut")} hint={t("launcherPage.switcherHint")}>
       {@render shortcut("window-switcher")}
@@ -141,6 +164,32 @@
 </div>
 
 <style>
+  .places-hint {
+    margin: 2px 0 10px;
+    color: var(--fg-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .places {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 4px 20px;
+  }
+
+  .place {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+
+    span {
+      flex: 1;
+    }
+  }
+
   .win-key-status {
     display: flex;
     align-items: center;
