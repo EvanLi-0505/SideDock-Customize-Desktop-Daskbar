@@ -20,6 +20,7 @@ use crate::{
         keyboard::{self, KeyboardLayout},
         media::{self, MediaInfo},
         network::{self, NetworkStatus},
+        perf::{PerfSampler, PerfStatus},
         power::{self, PowerStatus},
         radios,
         shell::{self, RecycleBinInfo},
@@ -40,6 +41,8 @@ pub struct SystemState {
     pub network: Option<NetworkStatus>,
     /// `None` = no playback device
     pub volume: Option<VolumeStatus>,
+    /// CPU, memory and network speed (toolbar items)
+    pub perf: Option<PerfStatus>,
 }
 
 static STATE: LazyLock<RwLock<SystemState>> = LazyLock::new(|| RwLock::new(SystemState::default()));
@@ -59,12 +62,15 @@ fn active_modules() -> HashSet<String> {
         .collect();
     let toolbar = settings::get().toolbar;
     if toolbar.enabled {
-        let needs: [(&str, &[&str]); 5] = [
+        let needs: [(&str, &[&str]); 8] = [
             ("battery", &["power"]),
             ("keyboard", &["keyboard"]),
             ("bluetooth", &["bluetooth"]),
             ("media", &["media"]),
             ("quick-settings", &["network", "volume"]),
+            ("cpu", &["perf"]),
+            ("memory", &["perf"]),
+            ("net-speed", &["perf"]),
         ];
         for (item, modules) in needs {
             if toolbar.items.contains(item) {
@@ -104,6 +110,7 @@ pub fn start() {
         let _com = crate::windows_api::ComGuard::new();
         let mut media_manager = None;
         let mut audio_devices = None;
+        let mut perf = PerfSampler::default();
         let mut tick: u64 = 0;
         loop {
             let modules = active_modules();
@@ -141,6 +148,13 @@ pub fn start() {
                     audio_devices = audio::enumerator().ok();
                 }
                 next.volume = audio_devices.as_ref().and_then(audio::status);
+            }
+            if modules.contains("perf") {
+                next.perf = Some(perf.sample());
+            } else if next.perf.is_some() {
+                // rates need two fresh samples when the items come back
+                next.perf = None;
+                perf = PerfSampler::default();
             }
 
             let changed = {

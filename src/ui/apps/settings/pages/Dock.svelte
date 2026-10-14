@@ -113,7 +113,7 @@
 
   <SettingsGroup>
     {#snippet header()}
-      <SettingsRow label={t("dock.autoHide")} strong>
+      <SettingsRow label={t("dock.autoHide")} hint={dock.hideMode === "Never" ? t("dock.neverHint") : undefined} strong>
         <Select
           value={dock.hideMode}
           options={[

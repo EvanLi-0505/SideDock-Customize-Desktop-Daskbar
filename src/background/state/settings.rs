@@ -180,7 +180,43 @@ pub const TOOLBAR_ITEMS: &[&str] = &[
     "clock",
     "task-manager",
     "show-desktop",
+    "cpu",
+    "memory",
+    "net-speed",
 ];
+
+/// Prefix of the items that are custom buttons: `custom:<button id>`.
+pub const CUSTOM_ITEM_PREFIX: &str = "custom:";
+const CUSTOM_BUTTONS_MAX: usize = 24;
+
+/// A button the user adds to the toolbar: opens a program, file, folder or web address.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CustomButton {
+    pub id: String,
+    pub name: String,
+    /// program, file, folder or URL
+    pub target: String,
+    /// command line arguments, programs only
+    pub args: String,
+    /// icon name of the icon set; empty = the target's own icon
+    pub icon: String,
+}
+
+impl CustomButton {
+    /// A web (or other protocol) address rather than a path.
+    pub fn is_url(&self) -> bool {
+        let t = self.target.trim();
+        t.contains("://") || t.starts_with("mailto:") || t.starts_with("ms-settings:")
+    }
+}
+
+fn truncate(text: &mut String, max: usize) {
+    *text = text.trim().to_string();
+    if text.chars().count() > max {
+        *text = text.chars().take(max).collect();
+    }
+}
 
 /// Items of the toolbar's three sections, in order. Items in no section are not shown.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -212,12 +248,18 @@ impl Default for ToolbarItems {
 }
 
 impl ToolbarItems {
-    /// Drops unknown and repeated items.
-    fn sanitize(&mut self) {
+    /// Drops unknown and repeated items (custom ones must exist in `custom`).
+    fn sanitize(&mut self, custom: &[CustomButton]) {
+        let known = |id: &str| {
+            TOOLBAR_ITEMS.contains(&id)
+                || id
+                    .strip_prefix(CUSTOM_ITEM_PREFIX)
+                    .is_some_and(|c| custom.iter().any(|b| b.id == c))
+        };
         let mut seen: Vec<String> = Vec::new();
         for section in [&mut self.left, &mut self.center, &mut self.right] {
             section.retain(|id| {
-                let ok = TOOLBAR_ITEMS.contains(&id.as_str()) && !seen.contains(id);
+                let ok = known(id) && !seen.contains(id);
                 if ok {
                     seen.push(id.clone());
                 }
@@ -282,6 +324,8 @@ pub struct ToolbarSettings {
     pub items: ToolbarItems,
     pub tray: TrayPrefs,
     pub show_seconds: bool,
+    /// buttons added by the user (shown where `items` places `custom:<id>`)
+    pub custom_buttons: Vec<CustomButton>,
 }
 
 impl Default for ToolbarSettings {
@@ -301,6 +345,7 @@ impl Default for ToolbarSettings {
             items: ToolbarItems::default(),
             tray: TrayPrefs::default(),
             show_seconds: false,
+            custom_buttons: Vec::new(),
         }
     }
 }
@@ -312,7 +357,16 @@ impl ToolbarSettings {
         self.delay_to_show = self.delay_to_show.min(10_000);
         self.delay_to_hide = self.delay_to_hide.min(10_000);
         self.background_opacity = self.background_opacity.min(100);
-        self.items.sanitize();
+        let mut ids = std::collections::HashSet::new();
+        self.custom_buttons.retain_mut(|b| {
+            truncate(&mut b.name, 40);
+            truncate(&mut b.target, 1024);
+            truncate(&mut b.args, 1024);
+            truncate(&mut b.icon, 40);
+            !b.id.is_empty() && b.id.len() <= 64 && !b.target.is_empty() && ids.insert(b.id.clone())
+        });
+        self.custom_buttons.truncate(CUSTOM_BUTTONS_MAX);
+        self.items.sanitize(&self.custom_buttons);
         let tray = &mut self.tray;
         let mut seen = std::collections::HashSet::new();
         tray.inline.retain(|k| seen.insert(k.clone()));

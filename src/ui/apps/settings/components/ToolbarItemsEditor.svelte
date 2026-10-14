@@ -3,7 +3,7 @@
 <script lang="ts">
   import Icon from "@shared/components/Icon.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
-  import { TOOLBAR_SECTIONS, toolbarItemMeta, unusedToolbarItems } from "@shared/toolbarItems.ts";
+  import { describeItem, TOOLBAR_SECTIONS, unusedToolbarItems } from "@shared/toolbarItems.ts";
   import { insertionIndex } from "@shared/trayDrag.ts";
   import type { ToolbarItemId } from "@shared/types.ts";
   import { editor } from "../state/editor.svelte.ts";
@@ -12,7 +12,9 @@
   const ZONES: Zone[] = [...TOOLBAR_SECTIONS, "unused"];
 
   const items = $derived(editor.value.toolbar.items);
-  const listOf = (zone: Zone): ToolbarItemId[] => (zone === "unused" ? unusedToolbarItems(items) : items[zone]);
+  const buttons = $derived(editor.value.toolbar.customButtons);
+  const listOf = (zone: Zone): ToolbarItemId[] =>
+    zone === "unused" ? unusedToolbarItems(items, buttons) : items[zone];
   /** the zone's items without the dragged one (insertion indexes refer to these) */
   const staying = (zone: Zone) => listOf(zone).filter((x) => x !== drag?.id);
 
@@ -74,7 +76,7 @@
       <span class="zone-label">{label(zone)}</span>
       <div class="chips" bind:this={zoneEls[zone]}>
         {#each listOf(zone) as id (id)}
-          {@const meta = toolbarItemMeta(id)}
+          {@const meta = describeItem(id, buttons)}
           {#if target?.zone === zone && id !== drag?.id && target.index === staying(zone).indexOf(id)}
             <span class="marker"></span>
           {/if}
@@ -89,7 +91,7 @@
             onpointercancel={up}
           >
             <Icon name={meta.icon} size={14} />
-            {t(meta.label)}
+            {meta.label}
           </button>
         {/each}
         {#if target?.zone === zone && target.index >= staying(zone).length}
@@ -104,10 +106,10 @@
 </div>
 
 {#if drag}
-  {@const meta = toolbarItemMeta(drag.id)}
+  {@const meta = describeItem(drag.id, buttons)}
   <div class="chip ghost" style:left="{drag.x - drag.dx}px" style:top="{drag.y - drag.dy}px">
     <Icon name={meta.icon} size={14} />
-    {t(meta.label)}
+    {meta.label}
   </div>
 {/if}
 

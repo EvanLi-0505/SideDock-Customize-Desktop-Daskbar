@@ -22,7 +22,8 @@ src/
     widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
                          tooltip, overlay (launcher / window switcher), toolbar, settings;
                          memory (releases the memory of idle helper windows)
-    windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media...)
+    windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media, audio,
+                         network status, CPU / memory / network speed...)
   ui/                    Svelte 5 frontend (Vite, multi-page)
     shared/              types mirrored from Rust, IPC, i18n, themes, components
     apps/<widget>/       one app per webview: dock, popup, tooltip, overlay, toolbar, settings

@@ -157,6 +157,8 @@ export const api = {
   trayPlace: (key: string, inline: boolean, index: number | null = null) =>
     invoke<AppSettings>("tray_place", { key, inline, index }),
   trayUseWindowsPlacement: () => invoke<AppSettings>("tray_use_windows_placement"),
+  /** runs a custom toolbar button (what it opens comes from the saved settings) */
+  toolbarRunCustom: (id: string) => fire(invoke("toolbar_run_custom", { id })),
   trayDrag: (phase: "move" | "end" | "cancel", key: string) => fire(invoke("tray_drag", { phase, key })),
 
   // Win key takeover: turning it on asks for administrator rights once (UAC)

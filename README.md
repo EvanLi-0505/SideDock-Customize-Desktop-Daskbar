@@ -25,7 +25,8 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 
 - **停靠栏**（完整移植自 Seelen UI）
   - 左 / 右 / 上 / 下四个位置，全屏宽度或按内容自适应
-  - 自动隐藏：从不（像任务栏一样占用屏幕空间）/ 总是 / 与窗口重叠时，可调显示/隐藏延迟
+  - 自动隐藏：从不（像任务栏一样占用屏幕空间，开关或调整时 Windows 可能重排桌面图标）/ 总是 / 与窗口重叠时，
+    可调显示/隐藏延迟
   - 全屏应用（游戏、视频）处于前台时自动隐藏
   - 固定应用、文件、快捷方式；从资源管理器拖放即可固定；从 Windows 任务栏一键导入
   - 运行中的窗口按应用分组，打开/聚焦指示器，窗口计数，拆分窗口，窗口标题
@@ -66,8 +67,13 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - **永远不改变桌面布局**：工具栏从不占用屏幕空间（占用空间会让 Windows 重排桌面图标）。
     隐藏 Windows 任务栏且位于底部时，它正好占据任务栏原来的位置；其他情况下它浮在窗口上方，
     可设置为“与窗口重叠时隐藏”或“总是自动隐藏”（鼠标移到屏幕边缘时出现）
-  - 自由定制：左 / 中 / 右三个区域的项目可拖动排列或隐藏，可调高度、内容大小（80%–140%）、显示/隐藏延迟
+  - 自由定制：左 / 中 / 右三个区域的项目（包括 CPU、内存、网速和自定义按钮）可拖动排列或隐藏，
+    可调高度、内容大小（80%–140%）、显示/隐藏延迟
   - **独立主题**：可以跟随停靠栏，也可以单独选择五种主题之一并单独调节不透明度
+  - **CPU、内存、网速**：可放到工具栏上的三个状态项目（内存提示里显示已用 / 总量，网速分下载和上传），
+    点击打开任务管理器；只在工具栏上有这些项目时才每秒读取一次
+  - **自定义按钮**：在工具栏上添加按钮，点击打开指定的程序、文件、文件夹或网址；可设置名称、启动参数和图标
+    （默认使用目标自己的图标），最多 24 个
   - 全屏应用处于前台时自动隐藏
 - **可选隐藏 Windows 任务栏，且不改变桌面布局**：只隐藏任务栏窗口本身，它保留的屏幕区域不变，
   桌面图标和最大化窗口不会移动（16:9、16:10 及其他比例的屏幕都一样，不会像 Seelen UI 那样重排桌面）。
@@ -203,8 +209,9 @@ taskbar does not change the desktop layout.
 
 - **Dock** (a full port of Seelen UI's)
   - Left / right / top / bottom, full width or fitted to its content
-  - Auto-hide: never (reserves screen space like the taskbar) / always / when a window overlaps it, with
-    adjustable show and hide delays
+  - Auto-hide: never (reserves screen space like the taskbar; turning it on or off or adjusting the dock may
+    make Windows rearrange the desktop icons) / always / when a window overlaps it, with adjustable show and
+    hide delays
   - Hides while a fullscreen app (game, video) is in the foreground
   - Pin apps, files and shortcuts; drop them from Explorer to pin; import the Windows taskbar's pins with one click
   - Running windows grouped by app, open / focused indicators, window count, split windows, window titles
@@ -256,9 +263,15 @@ taskbar does not change the desktop layout.
     Windows rearrange the desktop icons). At the bottom with the Windows taskbar hidden, it takes the
     taskbar's exact place; anywhere else it floats over windows and can "hide when a window overlaps it" or
     "always hide" (it comes back when the cursor reaches the screen edge)
-  - Customizable: drag items between the left, center and right sections or hide them; adjust the height,
-    the content size (80%–140%) and the show / hide delays
+  - Customizable: drag items (CPU, memory, network speed and custom buttons included) between the left,
+    center and right sections or hide them; adjust the height, the content size (80%–140%) and the show /
+    hide delays
   - **Its own theme**: same as the dock, or one of the five themes with its own opacity
+  - **CPU, memory, network speed**: three status items for the toolbar (the memory tooltip shows used / total,
+    network speed shows download and upload); a click opens Task Manager. They are read once a second, and
+    only while one of them is on the toolbar
+  - **Custom buttons**: add buttons that open a program, file, folder or web address, with a name, optional
+    arguments and an icon (the target's own icon by default); up to 24
   - Hides while a fullscreen app is in the foreground
 - **Optional: hide the Windows taskbar without changing the desktop layout**: only the taskbar window is
   hidden, the screen area it reserves stays, so desktop icons and maximized windows do not move (on 16:9,

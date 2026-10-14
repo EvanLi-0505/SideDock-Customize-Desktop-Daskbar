@@ -1,6 +1,6 @@
 {
   "name": "sidedock",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A portable side dock for Windows that coexists with the native taskbar. Based on Seelen UI's dock.",
   "private": true,
   "type": "module",

@@ -93,7 +93,24 @@ export type ToolbarItemId =
   | "notifications"
   | "clock"
   | "task-manager"
-  | "show-desktop";
+  | "show-desktop"
+  | "cpu"
+  | "memory"
+  | "net-speed"
+  /** a custom button: `custom:<button id>` */
+  | `custom:${string}`;
+
+/** A button the user adds to the toolbar. */
+export interface CustomButton {
+  id: string;
+  name: string;
+  /** program, file, folder or URL */
+  target: string;
+  /** command line arguments, programs only */
+  args: string;
+  /** icon name of the icon set, "" = the target's own icon */
+  icon: string;
+}
 
 export interface ToolbarItems {
   left: ToolbarItemId[];
@@ -128,6 +145,7 @@ export interface ToolbarSettings {
   items: ToolbarItems;
   tray: TrayPrefs;
   showSeconds: boolean;
+  customButtons: CustomButton[];
 }
 
 export interface TaskbarSettings {
@@ -289,6 +307,14 @@ export interface VolumeStatus {
   muted: boolean;
 }
 
+export interface PerfStatus {
+  /** 0-100, null until two samples were taken */
+  cpu: number | null;
+  memory: { percent: number; used: number; total: number } | null;
+  /** bytes per second, null until two samples were taken */
+  net: { down: number; up: number } | null;
+}
+
 export interface SystemState {
   power: PowerStatus | null;
   keyboard: KeyboardLayout[];
@@ -298,6 +324,8 @@ export interface SystemState {
   network: NetworkStatus | null;
   /** null = no playback device */
   volume: VolumeStatus | null;
+  /** CPU, memory, network speed (toolbar items) */
+  perf: PerfStatus | null;
 }
 
 export type Placement = "right" | "left" | "above" | "below";

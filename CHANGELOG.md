@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.2.0 - 2026-10-15
+
+### Toolbar: CPU, memory and network speed
+
+- Three new toolbar items: CPU usage, memory usage (the tooltip shows used / total) and
+  network speed (download and upload, stacked when the toolbar is tall enough). A click
+  opens Task Manager. Fixed-width digits keep the toolbar from shifting as they change.
+- Read with plain system calls once a second, and only while one of these items is on
+  the toolbar. Network speed counts the hardware adapters only (virtual and filter
+  interfaces would count the same traffic twice).
+- Add them in Settings > "Toolbar & taskbar" > Items (they start under "Not shown").
+
+### Toolbar: custom buttons
+
+- Settings > "Toolbar & taskbar" > "Custom buttons": add buttons that open a program,
+  file, folder or web address, with a name, optional arguments and an icon (the target's
+  own icon by default, or one of 24 icons). Up to 24 buttons.
+- A new button is placed right after the start button; drag it elsewhere like any item.
+- The page only asks for a button by its id: what it opens is always read from the saved
+  settings.
+
+### Dock
+
+- The "never hide" auto-hide option now says that it reserves screen space, and that
+  turning it on or off or adjusting the dock may make Windows rearrange the desktop icons.
+
 ## 2.1.0 - 2026-10-12
 
 ### Launcher bottom bar

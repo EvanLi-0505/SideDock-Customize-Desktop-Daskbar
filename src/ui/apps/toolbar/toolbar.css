@@ -240,6 +240,46 @@ body,
   }
 }
 
+/* ---------- CPU / memory / network speed ---------- */
+
+.perf {
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  .perf-value {
+    min-width: 3.4ch;
+    text-align: right;
+  }
+
+  /* down / up side by side, stacked when the bar is tall enough */
+  .net-lines {
+    display: flex;
+    gap: 8px;
+  }
+  &.two-lines .net-lines {
+    flex-direction: column;
+    gap: 0;
+    line-height: 1.2;
+    font-size: 0.9em;
+  }
+  .net-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    min-width: 8.5ch;
+  }
+}
+
+/* ---------- custom buttons ---------- */
+
+.custom img {
+  width: var(--tb-tray-icon);
+  height: var(--tb-tray-icon);
+  pointer-events: none;
+}
+
 /* ---------- clock ---------- */
 
 .clock {

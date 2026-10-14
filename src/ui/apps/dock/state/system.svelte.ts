@@ -12,6 +12,7 @@ let system = $state<SystemState>({
   bluetooth: null,
   network: null,
   volume: null,
+  perf: null,
 });
 let hidden = $state(false);
 

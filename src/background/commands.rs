@@ -56,6 +56,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         get_tray_icons,
         tray_icon_action,
         tray_place,
+        toolbar_run_custom,
         tray_use_windows_placement,
         tray_drag,
         // Win key takeover
@@ -264,6 +265,33 @@ async fn get_tray_icons() -> Vec<system_tray::TrayIconInfo> {
 #[tauri::command]
 async fn tray_icon_action(id: String, action: system_tray::TrayAction) -> Result<()> {
     system_tray::action(&id, action)
+}
+
+/// Runs a custom toolbar button. Only the id comes from the page: what it opens is read
+/// from the settings the user saved.
+#[tauri::command]
+async fn toolbar_run_custom(id: String) -> Result<()> {
+    if !throttle(&format!("custom:{id}"), Duration::from_millis(800)) {
+        return Ok(());
+    }
+    let button = settings::get()
+        .toolbar
+        .custom_buttons
+        .into_iter()
+        .find(|b| b.id == id)
+        .ok_or("unknown custom button")?;
+    let target = button.target.trim();
+    if button.is_url() {
+        return shell::open_uri(target);
+    }
+    let path = PathBuf::from(target);
+    // programs start in their own folder, like from a shortcut
+    let dir = path
+        .is_file()
+        .then(|| path.parent().map(PathBuf::from))
+        .flatten();
+    let args = Some(button.args.trim()).filter(|a| !a.is_empty());
+    shell::launch(target, args, dir.as_deref(), false)
 }
 
 /// Moves a tray icon to the toolbar (at `index` among its icons) or to the overflow

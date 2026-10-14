@@ -3,9 +3,13 @@
   import Icon from "@shared/components/Icon.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api } from "@shared/ipc.ts";
+  import { settingsState } from "@shared/state/settings.svelte.ts";
   import { networkIcon, networkTip, volumeIcon, volumeTip } from "@shared/statusIcons.ts";
+  import { customButtonOf } from "@shared/toolbarItems.ts";
   import type { ToolbarItemId } from "@shared/types.ts";
   import Clock from "./Clock.svelte";
+  import CustomItem from "./CustomItem.svelte";
+  import PerfItem from "./PerfItem.svelte";
   import Media from "./Media.svelte";
   import Tray from "./Tray.svelte";
   import { openMenu, openPopup, tooltip } from "./overlays.ts";
@@ -14,6 +18,7 @@
   let { id, twoLines }: { id: ToolbarItemId; twoLines: boolean } = $props();
 
   const system = $derived(toolbar.system);
+  const customButton = $derived(customButtonOf(id, settingsState.value.toolbar.customButtons));
   const layout = $derived(system.keyboard.find((k) => k.active) ?? system.keyboard[0]);
   const power = $derived(system.power);
   const batteryIcon = $derived.by(() => {
@@ -45,7 +50,11 @@
   }
 </script>
 
-{#if id === "tray"}
+{#if customButton}
+  <CustomItem button={customButton} />
+{:else if id === "cpu" || id === "memory" || id === "net-speed"}
+  <PerfItem kind={id} {twoLines} />
+{:else if id === "tray"}
   <Tray />
 {:else if id === "clock"}
   <Clock {twoLines} />

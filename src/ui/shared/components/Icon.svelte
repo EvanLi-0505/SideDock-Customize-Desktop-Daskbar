@@ -24,6 +24,27 @@
   import WifiLow from "@lucide/svelte/icons/wifi-low";
   import WifiOff from "@lucide/svelte/icons/wifi-off";
   import WifiZero from "@lucide/svelte/icons/wifi-zero";
+  import AppWindow from "@lucide/svelte/icons/app-window";
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
+  import ArrowDownUp from "@lucide/svelte/icons/arrow-down-up";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import BookOpen from "@lucide/svelte/icons/book-open";
+  import Bookmark from "@lucide/svelte/icons/bookmark";
+  import Briefcase from "@lucide/svelte/icons/briefcase";
+  import Calculator from "@lucide/svelte/icons/calculator";
+  import Camera from "@lucide/svelte/icons/camera";
+  import Cloud from "@lucide/svelte/icons/cloud";
+  import Code from "@lucide/svelte/icons/code";
+  import Cpu from "@lucide/svelte/icons/cpu";
+  import Gamepad2 from "@lucide/svelte/icons/gamepad-2";
+  import Heart from "@lucide/svelte/icons/heart";
+  import Link from "@lucide/svelte/icons/link";
+  import Mail from "@lucide/svelte/icons/mail";
+  import MemoryStick from "@lucide/svelte/icons/memory-stick";
+  import MousePointerClick from "@lucide/svelte/icons/mouse-pointer-click";
+  import Rocket from "@lucide/svelte/icons/rocket";
+  import Star from "@lucide/svelte/icons/star";
+  import Terminal from "@lucide/svelte/icons/terminal";
   import Battery from "@lucide/svelte/icons/battery";
   import BatteryCharging from "@lucide/svelte/icons/battery-charging";
   import BatteryFull from "@lucide/svelte/icons/battery-full";
@@ -148,6 +169,27 @@
     Sun,
     Trash2,
     Volume2,
+    AppWindow,
+    ArrowDown,
+    ArrowDownUp,
+    ArrowUp,
+    BookOpen,
+    Bookmark,
+    Briefcase,
+    Calculator,
+    Camera,
+    Cloud,
+    Code,
+    Cpu,
+    Gamepad2,
+    Heart,
+    Link,
+    Mail,
+    MemoryStick,
+    MousePointerClick,
+    Rocket,
+    Star,
+    Terminal,
     CircleUserRound,
     Download,
     EthernetPort,

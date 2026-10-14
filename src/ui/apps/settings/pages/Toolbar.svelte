@@ -11,6 +11,7 @@
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
+  import CustomButtonsEditor from "../components/CustomButtonsEditor.svelte";
   import ToolbarItemsEditor from "../components/ToolbarItemsEditor.svelte";
   import TrayIconsList from "../components/TrayIconsList.svelte";
   import { editor } from "../state/editor.svelte.ts";
@@ -142,6 +143,11 @@
     <SettingsRow label={t("toolbar.showSeconds")}>
       <Switch checked={toolbar.showSeconds} onchange={(v) => set("showSeconds", v)} />
     </SettingsRow>
+  </SettingsGroup>
+
+  <SettingsGroup title={t("custom.title")}>
+    <p class="hint">{t("custom.hint")}</p>
+    <CustomButtonsEditor />
   </SettingsGroup>
 
   {#if hasTray}

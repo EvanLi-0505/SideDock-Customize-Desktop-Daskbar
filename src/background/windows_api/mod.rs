@@ -9,6 +9,7 @@ pub mod keyboard;
 pub mod media;
 pub mod monitor;
 pub mod network;
+pub mod perf;
 pub mod power;
 pub mod radios;
 pub mod shell;
