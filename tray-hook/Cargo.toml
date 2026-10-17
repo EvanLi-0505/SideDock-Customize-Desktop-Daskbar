@@ -1,6 +1,6 @@
 [package]
 name = "sidedock-tray-hook"
-version = "2.3.0"
+version = "2.3.1"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Loaded into Explorer's taskbar thread by SideDock to forward notification area icon messages"

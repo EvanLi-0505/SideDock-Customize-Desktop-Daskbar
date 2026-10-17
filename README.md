@@ -115,6 +115,8 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 | 强制结束 / 崩溃 | 守护进程释放停靠栏占用的屏幕空间，并自动重启（2 分钟内超过 3 次则停止） |
 | 写配置时断电或被杀 | 原子写入（临时文件 + 重命名）并保留 `.bak`，损坏时自动回退 |
 | 隐藏任务栏时 SideDock 被强制结束 | 守护进程根据 `data/runtime/taskbar-hidden` 标记立即恢复任务栏 |
+| 隐藏任务栏时 SideDock 卡住 | 只有在停靠栏或工具栏已经显示、且 SideDock 的窗口线程正常响应时才隐藏任务栏；窗口线程超过 8 秒无响应时任务栏自动回来，恢复后再隐藏 |
+| 任务栏被另一份 SideDock 留在隐藏状态（例如连同守护进程一起被结束） | 任何一份 SideDock 启动时，如果自己的设置不隐藏任务栏，就把任务栏恢复显示 |
 | 快速连续开关“隐藏任务栏” | 恢复时不依赖任务栏当前是否可见，一律请求显示，并在之后几秒内持续校验 |
 | 资源管理器重启 | 自动重新隐藏任务栏、重新接入系统托盘，托盘图标由各应用自动重新登记 |
 | 内存占用 | 弹窗、提示和启动台窗口常驻以保证秒开；闲置 30 秒后允许 WebView2 释放它们的内存，再次使用前自动取回。自动隐藏的辅助停靠栏同样处理 |
@@ -347,6 +349,8 @@ taskbar does not change the desktop layout.
 | Killed / crashed | A guardian process releases the screen space reserved by the dock and restarts SideDock (it stops after more than 3 times in 2 minutes) |
 | Power loss or kill while saving settings | Atomic writes (temporary file + rename) with a `.bak` copy; a damaged file falls back automatically |
 | SideDock killed while the taskbar is hidden | The guardian restores the taskbar at once, from the `data/runtime/taskbar-hidden` marker |
+| SideDock hangs while the taskbar is hidden | The taskbar is only hidden once a dock or the toolbar is on screen and SideDock's window thread responds; after 8 seconds without a response the taskbar comes back, and goes again when SideDock recovers |
+| Taskbar left hidden by another SideDock copy (killed together with its guardian, say) | Any SideDock that starts without "hide the taskbar" shows it again |
 | "Hide the taskbar" switched on and off quickly | Restoring never relies on the taskbar's current visibility: it always asks for it to be shown, and checks again for a few seconds |
 | Explorer restarts | The taskbar is hidden again and the system tray is reconnected; applications register their tray icons again by themselves |
 | Memory | The popup, tooltip and launcher windows stay alive to open instantly; after 30 seconds idle WebView2 may release their memory, and they get it back before they are used again. Auto-hidden extra docks do the same |

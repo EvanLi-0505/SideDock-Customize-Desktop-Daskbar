@@ -418,6 +418,7 @@ fn update_covered(app: &AppHandle) {
 
 /// The page rendered: show the window (and reserve space if needed).
 pub fn set_ready(label: &str) {
+    crate::modules::taskbar_visibility::ui_ready();
     let hwnd = {
         let mut toolbars = TOOLBARS.lock();
         let Some(state) = toolbars.get_mut(label) else {

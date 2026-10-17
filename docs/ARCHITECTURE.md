@@ -133,7 +133,11 @@ scripts/package.mjs      portable zip packaging
   desktop icons. It floats, hides, or sits in the hidden taskbar's reserved place.
 * Hiding the Windows taskbar only hides its windows (`SW_HIDE`); its auto-hide state and
   reserved work area are never touched, so the desktop layout cannot change. A marker in
-  `data/runtime` lets the guardian restore the taskbar after a crash.
+  `data/runtime` lets the guardian restore the taskbar after a crash. The taskbar is only
+  hidden while SideDock is visibly running: once a dock or toolbar page reported ready and
+  while the window thread answers a heartbeat (`app.rs` posts one to it every second);
+  after `UI_TIMEOUT` without one it is shown until the thread recovers. A start that does
+  not hide it shows it whatever left it hidden (`taskbar_visibility::init`).
 * Code running inside Explorer (`tray-hook`) never panics, never blocks for more than a
   short timeout and always passes the message on; the receiver replies before doing any
   slow work.

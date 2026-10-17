@@ -19,10 +19,19 @@
 //!   few seconds (`RESTORE_WATCH`) and shows it again if something hid it meanwhile.
 //! * SideDock exiting restores it; after a crash the guardian does (marker file in
 //!   `data/runtime`).
+//! * The user is never left with neither a taskbar nor SideDock: the taskbar is only
+//!   hidden once SideDock's window thread is known to be running (a heartbeat, see
+//!   `heartbeat`) and a dock or toolbar has shown up (`ui_ready`). If the window thread
+//!   stops responding (`UI_TIMEOUT`), the taskbar comes back until it recovers.
+//! * At startup a taskbar left hidden by another SideDock copy (another folder, killed
+//!   with its guardian) is shown again when this one does not hide it (`init`).
 
 use std::{
     path::PathBuf,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::{
+        LazyLock,
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -56,6 +65,45 @@ static RESTORE_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 const RESTORE_WATCH: Duration = Duration::from_secs(4);
 /// thread running the WinEvent hook, 0 when none
 static HOOK_THREAD: AtomicU32 = AtomicU32::new(0);
+
+/// when this process started (heartbeat times are counted from it)
+static START: LazyLock<Instant> = LazyLock::new(Instant::now);
+/// last heartbeat of the window thread, in ms since `START` (0 = none yet)
+static HEARTBEAT: AtomicU64 = AtomicU64::new(0);
+/// a dock or a toolbar page has loaded
+static UI_READY: AtomicBool = AtomicBool::new(false);
+/// the taskbar is shown because the window thread stopped responding
+static SUSPENDED: AtomicBool = AtomicBool::new(false);
+/// the window thread counts as hung after this long without a heartbeat
+const UI_TIMEOUT: Duration = Duration::from_secs(8);
+/// with nothing to show (no dock, no toolbar), hide once the window thread has run this long
+const NOTHING_TO_SHOW_AFTER: Duration = Duration::from_secs(10);
+
+fn since_start() -> u64 {
+    START.elapsed().as_millis() as u64
+}
+
+/// Called on the window thread (the event loop) about once a second.
+pub fn heartbeat() {
+    HEARTBEAT.store(since_start().max(1), Ordering::Release);
+}
+
+fn ui_alive() -> bool {
+    let last = HEARTBEAT.load(Ordering::Acquire);
+    last != 0 && since_start().saturating_sub(last) < UI_TIMEOUT.as_millis() as u64
+}
+
+/// A dock or toolbar page loaded: the taskbar may go (if the option is on).
+pub fn ui_ready() {
+    if !UI_READY.swap(true, Ordering::AcqRel) && HIDDEN.load(Ordering::Acquire) && may_hide() {
+        apply(true);
+    }
+}
+
+/// Whether hiding is safe right now: SideDock is visibly running.
+fn may_hide() -> bool {
+    ui_alive() && (UI_READY.load(Ordering::Acquire) || START.elapsed() >= NOTHING_TO_SHOW_AFTER)
+}
 
 const CLASSES: [&str; 2] = ["Shell_TrayWnd", "Shell_SecondaryTrayWnd"];
 
@@ -152,7 +200,7 @@ unsafe extern "system" fn on_show(
     _thread: u32,
     _time: u32,
 ) {
-    if id_object == 0 && HIDDEN.load(Ordering::Acquire) && is_taskbar(hwnd) {
+    if id_object == 0 && HIDDEN.load(Ordering::Acquire) && may_hide() && is_taskbar(hwnd) {
         unsafe {
             let _ = ShowWindowAsync(hwnd, SW_HIDE);
         }
@@ -194,12 +242,36 @@ fn enforce() {
     }
     crate::utils::spawn_named("taskbar-visibility", || {
         let mut tick: u32 = 0;
+        let mut previous = Instant::now();
         loop {
             tick = tick.wrapping_add(1);
+            // the whole process was suspended (sleep, hibernation): not a hung window thread
+            let now = Instant::now();
+            if now.duration_since(previous) > Duration::from_secs(2) {
+                heartbeat();
+            }
+            previous = now;
             if HIDDEN.load(Ordering::Acquire) {
-                // the hook is the fast path: once a second is enough here
-                if tick.is_multiple_of(5) {
-                    apply(true);
+                if may_hide() {
+                    if SUSPENDED.swap(false, Ordering::AcqRel) {
+                        log::info!("SideDock responds again: native taskbar hidden again");
+                        apply(true);
+                    }
+                    // the hook is the fast path: once a second is enough here
+                    if tick.is_multiple_of(5) {
+                        apply(true);
+                    }
+                } else {
+                    // starting, or SideDock's windows stopped responding: keep the
+                    // taskbar until SideDock can be seen and used
+                    if UI_READY.load(Ordering::Acquire)
+                        && !SUSPENDED.swap(true, Ordering::AcqRel)
+                    {
+                        log::warn!(
+                            "SideDock's window thread is not responding: native taskbar shown until it recovers"
+                        );
+                    }
+                    apply(false);
                 }
             } else {
                 let watching = RESTORE_UNTIL.lock().is_some_and(|t| Instant::now() < t);
@@ -241,9 +313,13 @@ pub fn set_hidden(hidden: bool) {
     if hidden {
         *RESTORE_UNTIL.lock() = None;
         let _ = std::fs::write(marker(), b"1");
-        apply(true);
+        if may_hide() {
+            apply(true);
+            log::info!("native taskbar hidden (its space stays reserved)");
+        } else {
+            log::info!("native taskbar will be hidden once SideDock is on screen");
+        }
         watch();
-        log::info!("native taskbar hidden (its space stays reserved)");
     } else {
         stop_watching();
         *RESTORE_UNTIL.lock() = Some(Instant::now() + RESTORE_WATCH);
@@ -257,6 +333,21 @@ pub fn set_hidden(hidden: bool) {
         let _ = std::fs::remove_file(marker());
         log::info!("native taskbar restored");
     }
+}
+
+/// Applies the option at startup. Unlike `set_hidden`, it does not trust the current
+/// state: a taskbar hidden by another SideDock copy (other folder, killed together with
+/// its guardian) or left over by a crash is shown again when the option is off.
+pub fn init(hidden: bool) {
+    LazyLock::force(&START);
+    if hidden {
+        set_hidden(true);
+        return;
+    }
+    if apply(false) {
+        log::warn!("native taskbar was hidden (another SideDock copy or an earlier crash): shown");
+    }
+    let _ = std::fs::remove_file(marker());
 }
 
 /// Used by the guardian after a crash: shows the taskbar again if SideDock hid it.

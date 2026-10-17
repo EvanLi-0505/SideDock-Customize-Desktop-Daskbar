@@ -622,6 +622,7 @@ pub fn info(label: &str) -> Option<DockInfo> {
 }
 
 pub fn set_ready(label: &str) {
+    crate::modules::taskbar_visibility::ui_ready();
     let show = {
         let mut docks = DOCKS.lock();
         let Some(dock) = docks.get_mut(label) else {

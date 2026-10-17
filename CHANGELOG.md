@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.3.1 - 2026-10-17
+
+### Fixed
+
+- The native taskbar could be left hidden with nothing of SideDock on screen. A start
+  hid the taskbar right away, before any dock or toolbar existed; when the window thread
+  then hung (seen once, with a copied data folder), the user had neither, and ending
+  SideDock together with its guardian in Task Manager left the taskbar hidden.
+  - The taskbar is now hidden only once a dock or the toolbar has loaded and SideDock's
+    window thread answers a heartbeat (or, with nothing to show, after 10 seconds of
+    heartbeats).
+  - If the window thread stops answering for 8 seconds, the taskbar comes back until it
+    recovers (the reason is logged). A suspended computer (sleep) does not count.
+  - At startup, a SideDock that does not hide the taskbar shows it again if it is
+    hidden, for instance by another copy in another folder.
+
 ## 2.3.0 - 2026-10-17
 
 ### Extra docks

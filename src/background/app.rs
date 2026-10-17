@@ -240,8 +240,17 @@ pub fn run() {
             start_apps::refresh();
             win_key::sync(&handle);
             widgets::dock::start(handle.clone());
+            // the window thread's heartbeat: the native taskbar is only hidden while
+            // SideDock's windows respond (taskbar_visibility)
+            let beat = handle.clone();
+            crate::utils::spawn_supervised("ui-heartbeat", move || {
+                loop {
+                    let _ = beat.run_on_main_thread(taskbar_visibility::heartbeat);
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            });
             // native taskbar first: the toolbar may take its place
-            taskbar_visibility::set_hidden(settings::get().taskbar.hide_native);
+            taskbar_visibility::init(settings::get().taskbar.hide_native);
             widgets::toolbar::start(handle.clone());
             sync_toolbar();
 
