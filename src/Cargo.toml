@@ -1,6 +1,6 @@
 [package]
 name = "sidedock"
-version = "2.2.0"
+version = "2.3.0"
 description = "A portable side dock for Windows that coexists with the native taskbar"
 authors = ["SideDock contributors"]
 license = "AGPL-3.0-or-later"
@@ -67,6 +67,7 @@ features = [
   "Win32_System_WinRT_Composition",
   "Win32_UI_Accessibility",
   "Win32_UI_HiDpi",
+  "Win32_UI_Input_Ime",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_Shell_Common",

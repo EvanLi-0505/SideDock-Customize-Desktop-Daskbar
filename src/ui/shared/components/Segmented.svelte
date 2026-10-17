@@ -3,7 +3,7 @@
 
   interface Props {
     value: T;
-    options: { value: T; label?: string; icon?: string; title?: string }[];
+    options: { value: T; label?: string; icon?: string; title?: string; disabled?: boolean }[];
     onchange: (value: T) => void;
   }
   let { value, options, onchange }: Props = $props();
@@ -17,6 +17,7 @@
       aria-checked={option.value === value}
       title={option.title ?? option.label}
       class:active={option.value === value}
+      disabled={option.disabled}
       onclick={() => option.value !== value && onchange(option.value)}
     >
       {#if option.icon}<Icon name={option.icon} size={16} />{/if}
@@ -33,6 +34,11 @@
     border-radius: var(--radius-s);
     background: var(--surface-2);
     border: 1px solid var(--border-strong);
+
+    button:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
 
     button {
       display: flex;

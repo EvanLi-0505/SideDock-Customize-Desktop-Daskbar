@@ -1,4 +1,5 @@
-//! Memory of the helper windows (popup, tooltip, launcher overlay).
+//! Memory of the helper windows (popup, tooltip, launcher overlay) and of auto-hidden
+//! auxiliary docks.
 //!
 //! They are created once and kept hidden so they open instantly, but each is a WebView2
 //! renderer of its own. A window that has been hidden for a while gets the "low" memory
@@ -28,17 +29,17 @@ struct Entry {
     lowered: bool,
 }
 
-static WINDOWS: Mutex<Option<HashMap<&'static str, Entry>>> = Mutex::new(None);
+static WINDOWS: Mutex<Option<HashMap<String, Entry>>> = Mutex::new(None);
 static STARTED: AtomicBool = AtomicBool::new(false);
 
-fn with<R>(f: impl FnOnce(&mut HashMap<&'static str, Entry>) -> R) -> R {
+fn with<R>(f: impl FnOnce(&mut HashMap<String, Entry>) -> R) -> R {
     f(WINDOWS.lock().get_or_insert_with(HashMap::new))
 }
 
 /// The window was just hidden (or created hidden).
-pub fn idle(label: &'static str) {
+pub fn idle(label: &str) {
     with(|windows| {
-        let entry = windows.entry(label).or_insert(Entry {
+        let entry = windows.entry(label.to_string()).or_insert(Entry {
             idle_since: None,
             lowered: false,
         });
@@ -49,9 +50,9 @@ pub fn idle(label: &'static str) {
 }
 
 /// The window is about to render and show: give it its memory back first.
-pub fn active(app: &AppHandle, label: &'static str) {
+pub fn active(app: &AppHandle, label: &str) {
     let was_lowered = with(|windows| {
-        let entry = windows.entry(label).or_insert(Entry {
+        let entry = windows.entry(label.to_string()).or_insert(Entry {
             idle_since: None,
             lowered: false,
         });
@@ -71,7 +72,7 @@ pub fn start(app: AppHandle) {
     crate::utils::spawn_supervised("webview-memory", move || {
         loop {
             std::thread::sleep(CHECK_EVERY);
-            let due: Vec<&'static str> = with(|windows| {
+            let due: Vec<String> = with(|windows| {
                 windows
                     .iter_mut()
                     .filter(|(_, e)| {
@@ -79,15 +80,20 @@ pub fn start(app: AppHandle) {
                     })
                     .map(|(label, e)| {
                         e.lowered = true;
-                        *label
+                        label.clone()
                     })
                     .collect()
             });
             for label in due {
-                if let Some(window) = app.get_webview_window(label) {
+                if let Some(window) = app.get_webview_window(&label) {
                     super::set_memory_low(&window, true);
                 }
             }
         }
     });
+}
+
+/// A window is gone: forget it.
+pub fn forget(label: &str) {
+    with(|windows| windows.remove(label));
 }

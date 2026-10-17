@@ -3,6 +3,10 @@
      the left. Previews are live DWM thumbnails: this page only computes their rects
      (CSS px) and draws the frames, labels and selection around them.
 
+     Minimized windows show the last picture they drew (DWM keeps it; they stop drawing
+     while minimized) with a "minimized" tag, and the window of the app playing media gets
+     a now-playing strip with playback buttons.
+
      Mouse: a click on an app card or on one of the small windows below the stage only
      selects it (it moves to the stage); a click on the stage, or a double click on a card
      or a small window, switches to it.
@@ -12,9 +16,10 @@
      switches (handled by the backend, see widgets/overlay.rs). -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import Icon from "@shared/components/Icon.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api, Events, iconUrl, on } from "@shared/ipc.ts";
-  import type { ThumbnailRequest, UserAppWindow } from "@shared/types.ts";
+  import type { MediaInfo, ThumbnailRequest, UserAppWindow } from "@shared/types.ts";
   import { wheelStepper, type Direction } from "../wheel.ts";
 
   interface Box {
@@ -59,7 +64,34 @@
     if (current) api.switcherSelect(current.hwnd);
   });
 
+  // ---------------- now playing ----------------
+
+  let media = $state<MediaInfo | null>(null);
+  const refreshMedia = () =>
+    api
+      .getMediaNow()
+      .then((m) => (media = m))
+      .catch(() => (media = null));
+
+  const stem = (s: string) => s.toLowerCase().replace(/\.exe$/, "");
+  /** Does this window belong to the app the media session comes from? */
+  function playsMedia(w: UserAppWindow): boolean {
+    const source = media?.sourceApp ? stem(media.sourceApp) : "";
+    if (!source) return false;
+    const exe = w.path ? stem(w.path.split(/[\\/]/).pop() ?? "") : "";
+    const umid = w.umid ? w.umid.toLowerCase() : "";
+    return (!!umid && (umid === source || umid.startsWith(source + "!"))) || (!!exe && (exe === source || source.endsWith(exe)));
+  }
+
+  function mediaCommand(e: MouseEvent, command: "togglePlayPause" | "next" | "previous") {
+    e.stopPropagation();
+    api.mediaCommand(command);
+    setTimeout(refreshMedia, 350);
+  }
+
   onMount(() => {
+    refreshMedia();
+    const mediaTimer = setInterval(refreshMedia, 2000);
     api.getWindows().then(accept);
     const changed = on<UserAppWindow[]>(Events.WindowsChanged, accept);
     const step = on<number>(Events.SwitcherStep, () => next(1));
@@ -68,6 +100,7 @@
     // not passive: the wheel must not scroll anything natively
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      clearInterval(mediaTimer);
       window.removeEventListener("wheel", onWheel);
       stepper.dispose();
       changed.then((f) => f());
@@ -186,12 +219,16 @@
 
   const currentGroup = $derived(current ? groups.find((g) => g.includes(current)) : undefined);
 
+  /** the app playing media: its most recently used window carries the now-playing strip */
+  const mediaWindow = $derived(media ? groups.find((g) => playsMedia(g[0]!))?.[0] : undefined);
+
   // ---------------- layout ----------------
 
   /** Largest box with the window's aspect ratio inside `area`, centered. */
   function fit(w: UserAppWindow, area: Box): Box {
-    const r = w.rect;
-    const valid = r && !w.isIconic && r.right - r.left > 50 && r.bottom - r.top > 50;
+    // a minimized window keeps the proportions it is restored to
+    const r = w.isIconic ? w.restoredRect : w.rect;
+    const valid = r && r.right - r.left > 50 && r.bottom - r.top > 50;
     const aspect = valid ? (r.right - r.left) / (r.bottom - r.top) : 16 / 10;
     let width = area.width;
     let height = width / aspect;
@@ -323,11 +360,11 @@
     return { main, titleY, small };
   });
 
-  // live previews (minimized windows have no content to show: icon placeholder instead)
+  // live previews; minimized windows show the last picture they drew
   $effect(() => {
     const list: ThumbnailRequest[] = [];
     const add = (key: string, w: UserAppWindow, b: Box, visibleWidth = 1, visibleHeight = 1) => {
-      if (!w.isIconic) list.push({ key, hwnd: w.hwnd, ...b, visibleWidth, visibleHeight });
+      list.push({ key, hwnd: w.hwnd, ...b, visibleWidth, visibleHeight });
     };
     for (const { group, thumb, visibleHeight } of strip) {
       add(`card-${group[0]!.hwnd}`, group[0]!, thumb, 1, visibleHeight);
@@ -356,7 +393,7 @@
     <div class="empty">{t("switcher.empty")}</div>
   {/if}
 
-  {#each strip as { group, card, thumb, visibleHeight, z } (group[0]!.hwnd)}
+  {#each strip as { group, card, z } (group[0]!.hwnd)}
     {@const w = group[0]!}
     <!-- more windows of the same app: card edges peeking out behind it -->
     {#each group.slice(1, 3) as _, k (k)}
@@ -380,16 +417,10 @@
       <span class="label">
         <img src={iconUrl(w.path, w.umid)} alt="" draggable="false" />
         <span class="text">{w.appName || w.title}</span>
+        {#if mediaWindow === w && media?.playing}<span class="badge playing" title={media.title}><Icon name="Music" size={11} /></span>{/if}
+        {#if w.isIconic}<span class="badge" title={t("switcher.minimized")}><Icon name="Minus" size={11} /></span>{/if}
         {#if group.length > 1}<span class="count">{group.length}</span>{/if}
       </span>
-      {#if w.isIconic && visibleHeight > 0.3}
-        <span
-          class="placeholder"
-          style="left:{thumb.x - card.x}px;top:{thumb.y - card.y}px;width:{thumb.width}px;height:{thumb.height}px"
-        >
-          <img src={iconUrl(w.path, w.umid)} alt="" draggable="false" />
-        </span>
-      {/if}
     </button>
   {/each}
 
@@ -400,20 +431,34 @@
       style={px(stage.main)}
       aria-label={current.title}
       onclick={() => activate(current)}
-    >
-      {#if current.isIconic}
-        <span class="placeholder big">
-          <img src={iconUrl(current.path, current.umid)} alt="" draggable="false" />
-          <span>{t("switcher.minimized")}</span>
-        </span>
-      {/if}
-    </button>
+    ></button>
     <div class="title" style:top="{stage.titleY}px" style:left="{stage.main.x}px" style:width="{stage.main.width}px">
       <img src={iconUrl(current.path, current.umid)} alt="" draggable="false" />
       <div class="title-text">
         <span class="window-title">{current.title}</span>
-        <span class="app-name">{current.appName}</span>
+        <span class="app-name">
+          {current.appName}
+          {#if current.isIconic}<span class="tag">{t("switcher.minimized")}</span>{/if}
+        </span>
       </div>
+      {#if media && mediaWindow === current}
+        <div class="now-playing" role="group">
+          <Icon name="Music" size={14} />
+          <span class="np-text">
+            <span class="np-state">{media.playing ? t("switcher.nowPlaying") : t("switcher.paused")}</span>
+            <span class="np-title">{media.title}{media.artist ? ` - ${media.artist}` : ""}</span>
+          </span>
+          <button type="button" aria-label={t("switcher.previous")} onclick={(e) => mediaCommand(e, "previous")}>
+            <Icon name="SkipBack" size={15} />
+          </button>
+          <button type="button" aria-label={t("switcher.playPause")} onclick={(e) => mediaCommand(e, "togglePlayPause")}>
+            <Icon name={media.playing ? "Pause" : "Play"} size={15} />
+          </button>
+          <button type="button" aria-label={t("switcher.next")} onclick={(e) => mediaCommand(e, "next")}>
+            <Icon name="SkipForward" size={15} />
+          </button>
+        </div>
+      {/if}
     </div>
     {#each stage.small as s (s.window.hwnd)}
       <button
@@ -423,11 +468,7 @@
         style="{px(s.frame)};z-index:{s.z}"
         aria-label={s.window.title}
         onclick={(e) => pick(e, s.window)}
-      >
-        {#if s.window.isIconic}
-          <img src={iconUrl(s.window.path, s.window.umid)} alt="" draggable="false" />
-        {/if}
-      </button>
+      ></button>
     {/each}
   {/if}
 

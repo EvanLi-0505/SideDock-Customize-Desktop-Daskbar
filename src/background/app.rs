@@ -42,6 +42,15 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
     }
     new.autostart = autostart::is_enabled();
 
+    // the main dock moved onto an auxiliary dock's edge: they swap edges
+    let current = settings::get();
+    if new.dock.position != current.dock.position {
+        for aux in &mut new.aux_docks {
+            if aux.position == new.dock.position {
+                aux.position = current.dock.position;
+            }
+        }
+    }
     let old = settings::replace(new)?;
     let new = settings::get();
     emit(EVENT_SETTINGS_CHANGED, &new);
@@ -71,7 +80,7 @@ pub fn apply_settings(app: &AppHandle, mut new: AppSettings) -> Result<AppSettin
             });
         }
     }
-    if old.dock != new.dock {
+    if old.dock != new.dock || old.aux_docks != new.aux_docks {
         widgets::dock::request_reconcile();
     }
     if old.shortcuts != new.shortcuts {
@@ -118,17 +127,21 @@ pub fn run_shortcut(app: &AppHandle, action: &str) {
     }
 }
 
-pub fn broadcast_dock_items(source: &str) {
+/// Tells the docks (and the settings page) that the pinned items of a dock changed:
+/// `store` is `None` for the main dock, an auxiliary dock's id otherwise.
+pub fn broadcast_dock_items(source: &str, store: Option<&str>) {
     #[derive(Serialize, Clone)]
     struct Payload {
         source: String,
+        store: Option<String>,
         items: dock_items::DockItems,
     }
     emit(
         EVENT_DOCK_ITEMS_CHANGED,
         &Payload {
             source: source.to_string(),
-            items: dock_items::get(),
+            store: store.map(str::to_string),
+            items: dock_items::get_for(store),
         },
     );
 }

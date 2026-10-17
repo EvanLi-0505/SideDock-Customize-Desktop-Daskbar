@@ -1,5 +1,78 @@
 # Changelog
 
+## 2.3.0 - 2026-10-17
+
+### Extra docks
+
+- Up to 3 extra docks besides the main one (Settings > "Extra docks"), each on an edge of
+  its own, on the primary monitor. They hold the apps and files you pin and the modules
+  you add, never running apps. A click brings the app's most recent window to the front,
+  or starts it; the context menu removes the item.
+- Modules: the same ones as on the main dock (start menu, clock, media, power, network...),
+  from the dock's right-click "Modules" menu or as switches on the settings page. Each
+  dock has its own; their system data is read while any enabled dock shows them.
+- Each has its own size, width mode, auto-hide mode and delays. "Never hide" reserves
+  screen space, with the same warning as the main dock; the default is "when a window
+  overlaps it".
+- Each also has its own magnification (on / off, largest scale, icons affected on each
+  side, app names) and its own "when items do not fit" behavior (stack, shrink, collapse).
+  A dock without magnification uses a narrower window.
+- Pin from the settings page, by dropping files on the dock, or with "Pin to extra dock"
+  in the launcher's context menu. Items are kept in `data/config/aux_dock_items.json`.
+- Layout: left and right docks span the full height, top and bottom docks fit between
+  them. With a single extra dock and the main dock at the top or bottom, the main dock
+  keeps its whole edge. Moving the main dock onto an extra dock's edge swaps the two;
+  picking another extra dock's edge swaps those two.
+- A floating toolbar now keeps its whole edge: docks on that edge are placed inside it
+  instead of under it.
+- An auto-hidden extra dock gives its memory back while hidden.
+
+### Window switcher
+
+- Minimized windows now show a preview: their last frame before they were minimized,
+  tagged "minimized", in the proportions they are restored to (there used to be an icon
+  placeholder). The picture does not move: Windows stops drawing minimized windows.
+- Now playing: the app that plays media shows the track and previous / play-pause / next
+  buttons next to its window title, so a minimized video can be paused or skipped
+  without switching to it.
+
+### Toolbar: command and registry buttons
+
+- Custom buttons have a kind: "Open" (as before), "Command" and "Registry".
+- Command: a CMD or PowerShell command, several lines allowed. Run it in a window that
+  stays open, closes when done, or hidden; optionally as administrator and after a
+  confirmation. Multi-line CMD commands run from a batch file in
+  `data/runtime/commands/`.
+- Registry: a registry path (`HKCU\...`, `HKEY_CURRENT_USER\...`, `Computer\...` or with
+  `/`) that Registry Editor opens at. This writes Registry Editor's own "last key" value
+  (`HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\LastKey`), the only
+  way to open it at a path; see the README. If Registry Editor is already open it is
+  brought to the front, with a note to close it first.
+- Errors of custom buttons are shown in a small notice instead of being ignored.
+
+### Fixed
+
+- With several docks or toolbars (several monitors, or extra docks), each window also
+  received the messages meant for the others: placement, auto-hide state, pointer leave
+  and popup menu actions. A dock could take another dock's edge or width mode, and a
+  menu action could reach the wrong dock. Each window now only listens to its own.
+- The frosted glass backdrop (and the area that takes the mouse) could stay behind when
+  a dock changed edges: a bar that fits its content keeps its size but moves inside the
+  resized window, and only size changes were measured. Window resizes are measured too.
+- Keyboard layout selector (dock module and toolbar): picking a language often did
+  nothing. The request went to the application while SideDock's popup had the focus, and
+  Windows puts the input language back when a window returns to the front. The
+  application now gets the focus back first, and the request goes to the window that
+  takes its keyboard input (the core window of Store apps included).
+- The keyboard item followed Win+Space and other switches up to a second or more late,
+  and not at all in some apps: it read the layout of the top-level window's thread once
+  a second. It now reads the thread that has the keyboard focus, every 150 ms (a few
+  cheap calls; the list is only rebuilt when something changes).
+- The keyboard item now also follows the Chinese / English mode of Chinese IMEs (Shift in
+  Microsoft Pinyin, Sogou...): it shows "英" in English mode, like the Windows taskbar, and
+  "A" for Japanese and Korean IMEs typing Latin letters. Asked from the IME's own window,
+  with a 50 ms limit so a hung application cannot hold SideDock up.
+
 ## 2.2.0 - 2026-10-15
 
 ### Toolbar: CPU, memory and network speed

@@ -1,19 +1,23 @@
-<!-- Custom toolbar buttons: each opens a program, file, folder or web address. A new button
-     is placed right after the start button; drag it elsewhere in the items editor. -->
+<!-- Custom toolbar buttons: open a program, file, folder or web address, run a command
+     (cmd or PowerShell), or open a key in Registry Editor. A new button is placed right
+     after the start button; drag it elsewhere in the items editor. -->
 <script lang="ts">
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import Icon from "@shared/components/Icon.svelte";
+  import Segmented from "@shared/components/Segmented.svelte";
+  import Select from "@shared/components/Select.svelte";
+  import Switch from "@shared/components/Switch.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { iconUrl } from "@shared/ipc.ts";
-  import { customItemId } from "@shared/toolbarItems.ts";
-  import type { CustomButton } from "@shared/types.ts";
+  import { customButtonIcon, customItemId, isUrlTarget } from "@shared/toolbarItems.ts";
+  import type { ButtonKind, CommandShell, CustomButton, RunMode } from "@shared/types.ts";
   import { editor } from "../state/editor.svelte.ts";
 
   const MAX = 24;
   const ICONS = [
     "MousePointerClick", "AppWindow", "Globe", "Link", "Folder", "FileText", "Terminal", "Code",
-    "Rocket", "Star", "Heart", "Bookmark", "Mail", "Music", "Video", "Image", "Camera", "Gamepad2",
-    "Calculator", "Cloud", "BookOpen", "Briefcase", "Settings", "Download",
+    "Database", "Rocket", "Star", "Heart", "Bookmark", "Mail", "Music", "Video", "Image", "Camera",
+    "Gamepad2", "Calculator", "Cloud", "BookOpen", "Briefcase", "Settings", "Download",
   ];
 
   const buttons = $derived(editor.value.toolbar.customButtons);
@@ -23,16 +27,31 @@
   let isNew = $state(false);
   let error = $state("");
 
-  const isUrl = (target: string) => /^[a-z][a-z0-9+.-]*:(\/\/)?/i.test(target) && !/^[a-z]:\\/i.test(target);
+  function blank(): CustomButton {
+    return {
+      id: crypto.randomUUID(),
+      name: "",
+      kind: "open",
+      target: "",
+      args: "",
+      command: "",
+      shell: "cmd",
+      runMode: "keep",
+      elevated: false,
+      confirm: false,
+      icon: "",
+    };
+  }
 
   function startAdd() {
-    draft = { id: crypto.randomUUID(), name: "", target: "", args: "", icon: "" };
+    draft = blank();
     isNew = true;
     error = "";
   }
 
   function startEdit(button: CustomButton) {
-    draft = { ...button };
+    // buttons saved by 2.2.0 have no kind fields yet
+    draft = { ...blank(), ...button };
     isNew = false;
     error = "";
   }
@@ -49,12 +68,37 @@
     }
   }
 
+  /** what a button shows under its name in the list */
+  function summary(button: CustomButton): string {
+    if (button.kind === "command") return button.command.split("\n")[0] ?? "";
+    return `${button.target}${button.kind === "open" && button.args ? ` ${button.args}` : ""}`;
+  }
+
   function save() {
     if (!draft) return;
-    const button = { ...draft, name: draft.name.trim(), target: draft.target.trim(), args: draft.args.trim() };
-    if (!button.target) {
+    const button: CustomButton = {
+      ...draft,
+      name: draft.name.trim(),
+      target: draft.target.trim(),
+      args: draft.args.trim(),
+      command: draft.command.replace(/\s+$/, ""),
+    };
+    if (button.kind === "command" && !button.command.trim()) {
+      error = t("custom.commandRequired");
+      return;
+    }
+    if (button.kind === "registry" && !button.target) {
+      error = t("custom.registryRequired");
+      return;
+    }
+    if (button.kind === "open" && !button.target) {
       error = t("custom.targetRequired");
       return;
+    }
+    // a name the tooltip can show
+    if (!button.name) {
+      if (button.kind === "command") button.name = button.command.trim().split("\n")[0]!.slice(0, 40);
+      if (button.kind === "registry") button.name = button.target.split(/[\\/]/).filter(Boolean).pop() ?? "";
     }
     editor.update((s) => {
       const list = s.toolbar.customButtons;
@@ -86,14 +130,10 @@
 
 {#snippet preview(button: CustomButton)}
   <span class="preview">
-    {#if button.icon}
-      <Icon name={button.icon} size={18} />
-    {:else if isUrl(button.target)}
-      <Icon name="Globe" size={18} />
-    {:else if button.target}
+    {#if !button.icon && button.kind === "open" && button.target && !isUrlTarget(button.target)}
       <img src={iconUrl(button.target)} alt="" />
     {:else}
-      <Icon name="MousePointerClick" size={18} />
+      <Icon name={customButtonIcon(button)} size={18} />
     {/if}
   </span>
 {/snippet}
@@ -103,10 +143,10 @@
     <ul class="list">
       {#each buttons as button (button.id)}
         <li>
-          {@render preview(button)}
+          {@render preview({ ...blank(), ...button })}
           <div class="text">
             <span class="name">{button.name || button.target}</span>
-            <span class="target" title={button.target}>{button.target}{button.args ? ` ${button.args}` : ""}</span>
+            <span class="target" title={summary({ ...blank(), ...button })}>{summary({ ...blank(), ...button })}</span>
           </div>
           <button type="button" class="btn btn-ghost" onclick={() => startEdit(button)}>
             <Icon name="Pencil" size={14} />
@@ -125,30 +165,90 @@
 
   {#if draft}
     <div class="form">
+      <div class="field">
+        <span>{t("custom.kind")}</span>
+        <Segmented
+          value={draft.kind}
+          options={[
+            { value: "open" as ButtonKind, icon: "MousePointerClick", label: t("custom.kind.open") },
+            { value: "command" as ButtonKind, icon: "Terminal", label: t("custom.kind.command") },
+            { value: "registry" as ButtonKind, icon: "Database", label: t("custom.kind.registry") },
+          ]}
+          onchange={(v) => draft && (draft.kind = v)}
+        />
+      </div>
       <label class="field">
         <span>{t("custom.name")}</span>
         <input type="text" maxlength="40" bind:value={draft.name} placeholder={t("custom.namePlaceholder")} />
       </label>
-      <div class="field">
-        <span>{t("custom.target")}</span>
-        <div class="target-row">
-          <input
-            type="text"
-            maxlength="1024"
-            bind:value={draft.target}
-            placeholder={t("custom.targetPlaceholder")}
-            spellcheck="false"
-          />
-          <button type="button" class="btn" onclick={() => browse(false)}>{t("custom.pickFile")}</button>
-          <button type="button" class="btn" onclick={() => browse(true)}>{t("custom.pickFolder")}</button>
+
+      {#if draft.kind === "open"}
+        <div class="field">
+          <span>{t("custom.target")}</span>
+          <div class="target-row">
+            <input
+              type="text"
+              maxlength="1024"
+              bind:value={draft.target}
+              placeholder={t("custom.targetPlaceholder")}
+              spellcheck="false"
+            />
+            <button type="button" class="btn" onclick={() => browse(false)}>{t("custom.pickFile")}</button>
+            <button type="button" class="btn" onclick={() => browse(true)}>{t("custom.pickFolder")}</button>
+          </div>
         </div>
-      </div>
-      {#if !isUrl(draft.target)}
+        {#if !isUrlTarget(draft.target)}
+          <label class="field">
+            <span>{t("custom.args")}</span>
+            <input type="text" maxlength="1024" bind:value={draft.args} placeholder={t("custom.argsPlaceholder")} spellcheck="false" />
+          </label>
+        {/if}
+      {:else if draft.kind === "command"}
         <label class="field">
-          <span>{t("custom.args")}</span>
-          <input type="text" maxlength="1024" bind:value={draft.args} placeholder={t("custom.argsPlaceholder")} spellcheck="false" />
+          <span>{t("custom.command")}</span>
+          <textarea rows="4" maxlength="8192" bind:value={draft.command} placeholder={t("custom.commandPlaceholder")} spellcheck="false"></textarea>
         </label>
+        <div class="row">
+          <span>{t("custom.shell")}</span>
+          <Segmented
+            value={draft.shell}
+            options={[
+              { value: "cmd" as CommandShell, label: "CMD" },
+              { value: "powershell" as CommandShell, label: "PowerShell" },
+            ]}
+            onchange={(v) => draft && (draft.shell = v)}
+          />
+        </div>
+        <div class="row">
+          <span>{t("custom.runMode")}</span>
+          <Select
+            value={draft.runMode}
+            options={[
+              { value: "keep" as RunMode, label: t("custom.runMode.keep") },
+              { value: "close" as RunMode, label: t("custom.runMode.close") },
+              { value: "hidden" as RunMode, label: t("custom.runMode.hidden") },
+            ]}
+            onchange={(v) => draft && (draft.runMode = v)}
+          />
+        </div>
+        {#if draft.runMode === "hidden"}<p class="note">{t("custom.runModeHint")}</p>{/if}
+        <div class="row">
+          <span>{t("custom.elevated")}<small>{t("custom.elevatedHint")}</small></span>
+          <Switch checked={draft.elevated} onchange={(v) => draft && (draft.elevated = v)} />
+        </div>
+      {:else}
+        <label class="field">
+          <span>{t("custom.registryPath")}</span>
+          <input type="text" maxlength="1024" bind:value={draft.target} placeholder={t("custom.registryPlaceholder")} spellcheck="false" />
+        </label>
+        <p class="note">{t("custom.registryHint")}</p>
       {/if}
+
+      <div class="row">
+        <span>{t("custom.confirm")}</span>
+        <Switch checked={draft.confirm} onchange={(v) => draft && (draft.confirm = v)} />
+      </div>
+
       <div class="field">
         <span>{t("custom.icon")}</span>
         <div class="icons" role="radiogroup">
@@ -193,6 +293,49 @@
 </div>
 
 <style>
+  textarea {
+    min-height: 84px;
+    padding: 8px 10px;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--fg);
+    font: 12.5px/1.5 "Cascadia Mono", Consolas, monospace;
+    resize: vertical;
+    outline: none;
+
+    &:focus {
+      border-color: var(--accent);
+    }
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 13px;
+
+    > span {
+      display: flex;
+      flex-direction: column;
+      color: var(--fg-secondary);
+      font-weight: 600;
+    }
+    small {
+      color: var(--fg-muted);
+      font-weight: 400;
+      font-size: 12px;
+    }
+  }
+
+  .note {
+    margin: -4px 0 0;
+    color: var(--fg-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
   .custom {
     display: flex;
     flex-direction: column;

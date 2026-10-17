@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type {
   AnchorRect,
   AppInfo,
@@ -12,6 +13,7 @@ import type {
   DockItems,
   FocusedApp,
   LauncherLayout,
+  MediaInfo,
   Placement,
   ShortcutStatus,
   StartApp,
@@ -52,8 +54,18 @@ export const Events = {
   LauncherLayoutChanged: "launcher-layout-changed",
 } as const;
 
+/** Events broadcast to every window. */
 export function on<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
   return listen<T>(event, (e) => handler(e.payload));
+}
+
+/**
+ * Events the backend sends to one window only (`app::emit_to`): dock info, hidden state,
+ * popup actions... A plain `listen` would also receive those meant for the other docks
+ * and toolbars.
+ */
+export function onSelf<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
+  return getCurrentWebviewWindow().listen<T>(event, (e) => handler(e.payload));
 }
 
 /** Logs command failures instead of throwing, for fire-and-forget UI actions. */
@@ -66,13 +78,15 @@ export const api = {
   getSettings: () => invoke<AppSettings>("get_settings"),
   saveSettings: (settings: AppSettings) => invoke<AppSettings>("save_settings", { settings }),
   resetSettings: (section: "dock" | "all") => invoke<AppSettings>("reset_settings", { section }),
-  getDockItems: () => invoke<DockItems>("get_dock_items"),
-  saveDockItems: (items: DockItems, source: string) =>
-    invoke<DockItems>("save_dock_items", { items, source }),
+  /** `store`: an auxiliary dock's id; without it, the calling dock's (main from elsewhere) */
+  getDockItems: (store: string | null = null) => invoke<DockItems>("get_dock_items", { store }),
+  saveDockItems: (items: DockItems, source: string, store: string | null = null) =>
+    invoke<DockItems>("save_dock_items", { items, source, store }),
   resetDockItems: () => invoke<DockItems>("reset_dock_items"),
-  pinPaths: (paths: string[]) => invoke<number>("dock_pin_paths", { paths }),
+  /** to an auxiliary dock (`store`), or to the dock the call comes from (main from elsewhere) */
+  pinPaths: (paths: string[], store: string | null = null) => invoke<number>("dock_pin_paths", { paths, store }),
   importTaskbarPins: () => invoke<number>("dock_import_taskbar_pins"),
-  pinStartApp: (id: string) => invoke<number>("dock_pin_start_app", { id }),
+  pinStartApp: (id: string, store: string | null = null) => invoke<number>("dock_pin_start_app", { id, store }),
 
   // dock widget
   dockReady: () => fire(invoke("dock_ready")),
@@ -107,10 +121,12 @@ export const api = {
 
   // system modules
   getSystemState: () => invoke<SystemState>("get_system_state"),
-  setKeyboardLayout: (id: string) => fire(invoke("set_keyboard_layout", { id })),
+  setKeyboardLayout: (id: string) => invoke<void>("set_keyboard_layout", { id }),
   setBluetooth: (enabled: boolean) => invoke("set_bluetooth", { enabled }),
   mediaCommand: (command: "togglePlayPause" | "next" | "previous") =>
     fire(invoke("media_command", { command })),
+  /** what is playing now (the dock / toolbar follow it through the system state) */
+  getMediaNow: () => invoke<MediaInfo | null>("get_media_now"),
   powerAction: (action: "lock" | "signOut" | "sleep" | "hibernate" | "restart" | "shutdown") =>
     fire(invoke("power_action", { action })),
   emptyRecycleBin: () => fire(invoke("empty_recycle_bin")),
@@ -158,7 +174,7 @@ export const api = {
     invoke<AppSettings>("tray_place", { key, inline, index }),
   trayUseWindowsPlacement: () => invoke<AppSettings>("tray_use_windows_placement"),
   /** runs a custom toolbar button (what it opens comes from the saved settings) */
-  toolbarRunCustom: (id: string) => fire(invoke("toolbar_run_custom", { id })),
+  toolbarRunCustom: (id: string) => invoke<void>("toolbar_run_custom", { id }),
   trayDrag: (phase: "move" | "end" | "cancel", key: string) => fire(invoke("tray_drag", { phase, key })),
 
   // Win key takeover: turning it on asks for administrator rights once (UAC)

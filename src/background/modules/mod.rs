@@ -2,6 +2,7 @@
 
 pub mod apps;
 pub mod autostart;
+pub mod custom_buttons;
 pub mod hotkeys;
 pub mod icons;
 pub mod shell_flyouts;

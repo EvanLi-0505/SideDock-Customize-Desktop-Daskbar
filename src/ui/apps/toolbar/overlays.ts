@@ -1,7 +1,7 @@
 // Popups (calendar, power, keyboard, bluetooth, menus) and tooltips of the toolbar.
 // Same popup window as the dock; they open away from the toolbar's screen edge.
 
-import { api, Events, on } from "@shared/ipc.ts";
+import { api, Events, onSelf } from "@shared/ipc.ts";
 import type { MenuEntry } from "@shared/menu.ts";
 import { settingsState } from "@shared/state/settings.svelte.ts";
 import { anchorOf } from "@shared/utils.ts";
@@ -11,7 +11,7 @@ type ActionHandler = (action: string, value: unknown) => void;
 let handler: ActionHandler | null = null;
 
 export async function initOverlays(): Promise<void> {
-  await on<{ kind: string; action: string; value: unknown }>(Events.PopupAction, (p) => {
+  await onSelf<{ kind: string; action: string; value: unknown }>(Events.PopupAction, (p) => {
     handler?.(p.action, p.value);
   });
 }

@@ -697,3 +697,8 @@ body.dragging * {
       0 2px 8px rgb(0 0 0 / 0.12);
   }
 }
+
+/* auxiliary docks hold pinned items only: no running indicators */
+:root[data-aux] .weg-item-open-sign {
+  display: none;
+}

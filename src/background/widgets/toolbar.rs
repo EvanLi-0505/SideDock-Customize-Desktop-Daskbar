@@ -39,7 +39,7 @@ use crate::{
     app,
     error::{Result, ResultLogExt},
     modules::{apps, shell_flyouts, taskbar_visibility},
-    state::settings::{self, DockMonitors, HideMode, ThemeMode, ToolbarPosition},
+    state::settings::{self, DockMonitors, DockSide, HideMode, ThemeMode, ToolbarPosition},
     windows_api::{
         monitor::{self, MonitorInfo},
         window::Rect,
@@ -80,6 +80,8 @@ struct ToolbarState {
     replaces_taskbar: bool,
     auto_hide: bool,
     edge_bottom: bool,
+    /// placed at least once (the docks were told about its strip)
+    laid_out: bool,
     pending: Option<(bool, Instant)>,
     /// physical px covered by a Windows flyout at the left / right end
     covered: (i32, i32),
@@ -150,10 +152,14 @@ fn reconcile(app: &AppHandle) -> Result<()> {
         }
         keep
     });
+    let removed = !stale.is_empty();
     for (label, _) in stale {
         if let Some(window) = app.get_webview_window(&label) {
             window.destroy().log_error();
         }
+    }
+    if removed {
+        super::dock::request_layout_all();
     }
 
     for monitor in targets {
@@ -192,6 +198,7 @@ fn reconcile(app: &AppHandle) -> Result<()> {
                     replaces_taskbar: false,
                     auto_hide: false,
                     edge_bottom: true,
+                    laid_out: false,
                     pending: None,
                     covered: (0, 0),
                 },
@@ -288,7 +295,8 @@ fn layout(app: &AppHandle, label: &str, monitor: &MonitorInfo) -> Result<()> {
             ..slot
         },
         None => {
-            let wa = monitor.work_area;
+            // the outer edge, before SideDock's docks: they are placed inside the toolbar
+            let wa = super::dock::base_work_area(monitor);
             if edge_bottom {
                 Rect {
                     left: wa.left,
@@ -320,6 +328,12 @@ fn layout(app: &AppHandle, label: &str, monitor: &MonitorInfo) -> Result<()> {
             )?;
         }
     }
+    // the docks make room for a floating toolbar: tell them when its strip changes
+    let strip_changed = rect.height() != state.rect.height()
+        || replaces_taskbar != state.replaces_taskbar
+        || edge_bottom != state.edge_bottom
+        || !state.laid_out;
+    state.laid_out = true;
     state.rect = rect;
     state.replaces_taskbar = replaces_taskbar;
     state.edge_bottom = edge_bottom;
@@ -331,11 +345,32 @@ fn layout(app: &AppHandle, label: &str, monitor: &MonitorInfo) -> Result<()> {
         }
     }
     TOOLBARS.lock().insert(label.to_string(), state);
+    if strip_changed {
+        super::dock::request_layout_all();
+    }
 
     if let Some(info) = info(label) {
         app::emit_to(app, label, EVENT_INFO, &info);
     }
     Ok(())
+}
+
+/// The strip a floating toolbar takes at the edge of a monitor (`None` when there is no
+/// toolbar there, or it sits in the hidden taskbar's place, outside the work area). Its
+/// auto-hide state does not matter: the docks keep out of its way all the time.
+pub fn floating_strip(monitor_id: isize) -> Option<(DockSide, i32)> {
+    TOOLBARS
+        .lock()
+        .values()
+        .find(|t| t.monitor == monitor_id && t.laid_out && !t.replaces_taskbar)
+        .map(|t| {
+            let side = if t.edge_bottom {
+                DockSide::Bottom
+            } else {
+                DockSide::Top
+            };
+            (side, t.rect.height())
+        })
 }
 
 pub fn info(label: &str) -> Option<ToolbarInfo> {

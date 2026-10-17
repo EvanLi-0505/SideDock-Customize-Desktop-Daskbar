@@ -33,6 +33,13 @@ export function launchItem(item: AppDockItem, elevated = false): void {
  * `anchor` is the element popups (window list) are attached to.
  */
 export function activateApp(item: AppDockItem, windows: UserAppWindow[], anchor: Element): void {
+  // an auxiliary dock: bring the app's most recent window to the front, or start it
+  if (layout.aux) {
+    const recent = [...windows].sort((a, b) => b.lastForegroundAt - a.lastForegroundAt)[0];
+    if (recent) api.windowFocus(recent.hwnd);
+    else launchItem(item);
+    return;
+  }
   if (windows.length > 1) {
     openPopup(anchor, "windows", { title: item.displayName, windows: $state.snapshot(windows) }, {
       key: `windows:${item.id}`,
@@ -49,7 +56,10 @@ export function activateApp(item: AppDockItem, windows: UserAppWindow[], anchor:
 export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWindow[]): void {
   const entries: MenuEntry[] = [];
 
-  if (!item.preventPinning) {
+  if (layout.aux) {
+    // pinned items only: removing is unpinning
+    entries.push({ type: "item", id: "remove", label: t("aux_menu.remove"), icon: "PinOff" }, { type: "separator" });
+  } else if (!item.preventPinning) {
     entries.push(
       item.pinned
         ? { type: "item", id: "unpin", label: t("app_menu.unpin"), icon: "PinOff" }
@@ -71,7 +81,7 @@ export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWi
     );
   }
 
-  if (windows.length) {
+  if (windows.length && !layout.aux) {
     entries.push(
       { type: "separator" },
       {
@@ -97,6 +107,9 @@ export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWi
     switch (action) {
       case "pin":
         dockActions.pin(item.id);
+        break;
+      case "remove":
+        dockActions.remove(item.id);
         break;
       case "unpin":
         if (windows.length) dockActions.unpin(item.id);

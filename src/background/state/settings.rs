@@ -189,17 +189,59 @@ pub const TOOLBAR_ITEMS: &[&str] = &[
 pub const CUSTOM_ITEM_PREFIX: &str = "custom:";
 const CUSTOM_BUTTONS_MAX: usize = 24;
 
-/// A button the user adds to the toolbar: opens a program, file, folder or web address.
+/// What a custom button does.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ButtonKind {
+    /// a program, file, folder or web address (`target`, `args`)
+    #[default]
+    Open,
+    /// a command (`command`, `shell`, `run_mode`, `elevated`)
+    Command,
+    /// a key opened in Registry Editor (`target`)
+    Registry,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CommandShell {
+    #[default]
+    Cmd,
+    PowerShell,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RunMode {
+    /// window stays open to show the output
+    #[default]
+    Keep,
+    /// window closes when the command ends
+    Close,
+    /// no window
+    Hidden,
+}
+
+/// A button the user adds to the toolbar (`modules/custom_buttons.rs` runs it).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CustomButton {
     pub id: String,
     pub name: String,
-    /// program, file, folder or URL
+    pub kind: ButtonKind,
+    /// program, file, folder or URL (open); key path (registry)
     pub target: String,
     /// command line arguments, programs only
     pub args: String,
-    /// icon name of the icon set; empty = the target's own icon
+    /// the command, one or several lines
+    pub command: String,
+    pub shell: CommandShell,
+    pub run_mode: RunMode,
+    /// run the command as administrator (UAC prompt each time)
+    pub elevated: bool,
+    /// ask before running (the page asks)
+    pub confirm: bool,
+    /// icon name of the icon set; empty = the target's own icon / the kind's icon
     pub icon: String,
 }
 
@@ -363,7 +405,14 @@ impl ToolbarSettings {
             truncate(&mut b.target, 1024);
             truncate(&mut b.args, 1024);
             truncate(&mut b.icon, 40);
-            !b.id.is_empty() && b.id.len() <= 64 && !b.target.is_empty() && ids.insert(b.id.clone())
+            if b.command.chars().count() > 8192 {
+                b.command = b.command.chars().take(8192).collect();
+            }
+            let complete = match b.kind {
+                ButtonKind::Command => !b.command.trim().is_empty(),
+                ButtonKind::Open | ButtonKind::Registry => !b.target.is_empty(),
+            };
+            !b.id.is_empty() && b.id.len() <= 64 && complete && ids.insert(b.id.clone())
         });
         self.custom_buttons.truncate(CUSTOM_BUTTONS_MAX);
         self.items.sanitize(&self.custom_buttons);
@@ -507,6 +556,96 @@ impl DockSettings {
     }
 }
 
+/// Ids of the auxiliary docks (their pinned items are stored under these ids).
+pub const AUX_DOCK_IDS: [&str; 3] = ["aux1", "aux2", "aux3"];
+
+/// An auxiliary dock: pinned items and modules (never running apps), on an edge of its
+/// own, on the primary monitor. Everything not set here follows the main dock.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AuxDockSettings {
+    pub id: String,
+    pub enabled: bool,
+    pub position: DockSide,
+    pub mode: DockMode,
+    /// item size in px
+    pub size: u32,
+    pub hide_mode: HideMode,
+    pub delay_to_show: u32,
+    pub delay_to_hide: u32,
+    pub magnification: bool,
+    pub magnification_scale: f32,
+    pub magnification_range: u32,
+    pub show_labels: bool,
+    pub overflow_mode: OverflowMode,
+}
+
+impl Default for AuxDockSettings {
+    fn default() -> Self {
+        Self::new(AUX_DOCK_IDS[0], DockSide::Right)
+    }
+}
+
+impl AuxDockSettings {
+    fn new(id: &str, position: DockSide) -> Self {
+        Self {
+            id: id.to_string(),
+            enabled: false,
+            position,
+            mode: DockMode::FullWidth,
+            size: 40,
+            hide_mode: HideMode::OnOverlap,
+            delay_to_show: 120,
+            delay_to_hide: 600,
+            magnification: true,
+            magnification_scale: 1.8,
+            magnification_range: 3,
+            show_labels: true,
+            overflow_mode: OverflowMode::ShrinkThenStack,
+        }
+    }
+
+    /// The settings this dock runs with: the main dock's, with its own edge, size,
+    /// auto-hide, magnification and overflow, and nothing about running windows.
+    pub fn effective(&self, main: &DockSettings) -> DockSettings {
+        DockSettings {
+            enabled: self.enabled,
+            monitors: DockMonitors::Primary,
+            mode: self.mode,
+            position: self.position,
+            hide_mode: self.hide_mode,
+            delay_to_show: self.delay_to_show,
+            delay_to_hide: self.delay_to_hide,
+            size: self.size,
+            magnification: self.magnification,
+            magnification_scale: self.magnification_scale,
+            magnification_range: self.magnification_range,
+            show_labels: self.show_labels,
+            overflow_mode: self.overflow_mode,
+            show_window_title: false,
+            show_instance_counter: false,
+            split_windows: false,
+            show_end_task: false,
+            ..main.clone()
+        }
+    }
+}
+
+fn default_aux_docks() -> Vec<AuxDockSettings> {
+    [DockSide::Right, DockSide::Top, DockSide::Bottom]
+        .into_iter()
+        .zip(AUX_DOCK_IDS)
+        .map(|(side, id)| AuxDockSettings::new(id, side))
+        .collect()
+}
+
+const ALL_SIDES: [DockSide; 4] = [
+    DockSide::Left,
+    DockSide::Right,
+    DockSide::Top,
+    DockSide::Bottom,
+];
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppSettings {
@@ -522,6 +661,8 @@ pub struct AppSettings {
     pub launcher: LauncherSettings,
     pub toolbar: ToolbarSettings,
     pub taskbar: TaskbarSettings,
+    /// the three auxiliary docks (`AUX_DOCK_IDS`), enabled or not
+    pub aux_docks: Vec<AuxDockSettings>,
     /// action id -> accelerator ("Ctrl+Alt+Backquote"); empty string = disabled
     pub shortcuts: BTreeMap<String, String>,
 }
@@ -553,16 +694,52 @@ impl Default for AppSettings {
             launcher: LauncherSettings::default(),
             toolbar: ToolbarSettings::default(),
             taskbar: TaskbarSettings::default(),
+            aux_docks: default_aux_docks(),
             shortcuts: default_shortcuts(),
         }
     }
 }
 
 impl AppSettings {
+    /// Exactly the three auxiliary docks, each on an edge of its own that is not the main
+    /// dock's.
+    fn sanitize_aux_docks(&mut self) {
+        let defaults = default_aux_docks();
+        let mut list: Vec<AuxDockSettings> = defaults
+            .into_iter()
+            .map(|d| {
+                self.aux_docks
+                    .iter()
+                    .find(|a| a.id == d.id)
+                    .cloned()
+                    .unwrap_or(d)
+            })
+            .collect();
+        let mut used = vec![self.dock.position];
+        for aux in &mut list {
+            aux.size = aux.size.clamp(16, 128);
+            aux.delay_to_show = aux.delay_to_show.min(10_000);
+            aux.delay_to_hide = aux.delay_to_hide.min(10_000);
+            if !aux.magnification_scale.is_finite() {
+                aux.magnification_scale = 1.8;
+            }
+            aux.magnification_scale = aux.magnification_scale.clamp(1.1, 2.5);
+            aux.magnification_range = aux.magnification_range.clamp(1, 6);
+            if used.contains(&aux.position)
+                && let Some(free) = ALL_SIDES.into_iter().find(|s| !used.contains(s))
+            {
+                aux.position = free;
+            }
+            used.push(aux.position);
+        }
+        self.aux_docks = list;
+    }
+
     pub fn sanitize(&mut self) {
         self.dock.sanitize();
         self.launcher.sanitize();
         self.toolbar.sanitize();
+        self.sanitize_aux_docks();
         if self.accent_color.len() > 64 {
             self.accent_color.clear();
         }

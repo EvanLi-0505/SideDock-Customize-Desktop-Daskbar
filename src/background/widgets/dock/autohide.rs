@@ -21,7 +21,7 @@ use crate::{
     app,
     modules::apps,
     state::settings::{self, DockSide, HideMode, ThemeMode},
-    widgets::{native, popup},
+    widgets::{memory, native, popup},
     windows_api::{monitor, window::Rect, window::Window},
 };
 
@@ -107,7 +107,6 @@ pub fn start(app: AppHandle) {
                 continue;
             }
 
-            let settings = settings::get().dock;
             let windows = apps::windows();
             let foreground = Window::foreground();
             let fg_hwnd = foreground.map(|w| w.0).unwrap_or(0);
@@ -121,6 +120,7 @@ pub fn start(app: AppHandle) {
                 let Some(mon) = monitor::by_id(dock.monitor) else {
                     continue;
                 };
+                let settings = super::effective_settings(dock.aux.as_deref());
 
                 // ---- fullscreen apps ----
                 let fullscreen = settings.hide_on_fullscreen
@@ -207,6 +207,14 @@ pub fn start(app: AppHandle) {
                     p.since = None;
                     if let Some(d) = DOCKS.lock().get_mut(&dock.label) {
                         d.hidden = want_hidden;
+                    }
+                    // a hidden auxiliary dock can give its memory back while idle
+                    if dock.aux.is_some() {
+                        if want_hidden {
+                            memory::idle(&dock.label);
+                        } else {
+                            memory::active(&app, &dock.label);
+                        }
                     }
                     // click-through follows on the next frame (see update_hit_test)
                     app::emit_to(

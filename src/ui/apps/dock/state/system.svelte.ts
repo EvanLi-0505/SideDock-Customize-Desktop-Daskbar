@@ -1,4 +1,4 @@
-import { api, Events, on } from "@shared/ipc.ts";
+import { api, Events, on, onSelf } from "@shared/ipc.ts";
 import type { DockInfo, FocusedApp, SystemState, UserAppWindow } from "@shared/types.ts";
 
 let dockInfo = $state<DockInfo | null>(null);
@@ -37,14 +37,14 @@ export const systemState = {
 export async function initSystemState(): Promise<void> {
   // subscribe first so no event is lost between the fetch and the listen
   await Promise.all([
-    on<DockInfo>(Events.DockInfo, (info) => {
+    onSelf<DockInfo>(Events.DockInfo, (info) => {
       dockInfo = info;
       hidden = info.hidden;
     }),
     on<UserAppWindow[]>(Events.WindowsChanged, (list) => (windows = list)),
     on<FocusedApp>(Events.FocusChanged, (f) => (focused = f)),
     on<SystemState>(Events.SystemState, (s) => (system = s)),
-    on<{ hidden: boolean }>(Events.DockHidden, (p) => (hidden = p.hidden)),
+    onSelf<{ hidden: boolean }>(Events.DockHidden, (p) => (hidden = p.hidden)),
   ]);
   const [info, list, focus, sys] = await Promise.all([
     api.dockGetInfo(),

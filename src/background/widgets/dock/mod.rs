@@ -1,4 +1,13 @@
-//! The dock ("SeelenWeg" in Seelen UI). One transparent webview per monitor.
+//! The dock ("SeelenWeg" in Seelen UI). One transparent webview per monitor, plus up
+//! to three auxiliary docks on the primary monitor (pinned items only, each on an edge
+//! of its own; `settings::AuxDockSettings`). Every dock runs with its own effective
+//! settings ([`effective_settings`]).
+//!
+//! Layout of several docks on one monitor ([`span`]): with no auxiliary dock, as before;
+//! with one auxiliary dock and the main dock at the top or bottom, the main dock spans its
+//! whole edge; otherwise the left and right docks span the full height and the top and
+//! bottom docks sit between them. The toolbar, like the taskbar, keeps its whole edge:
+//! docks are placed inside it.
 //!
 //! The backend owns the geometry: it computes the window rect from the settings and the
 //! monitor work area, and registers the dock as a shell AppBar when it should reserve
@@ -38,7 +47,7 @@ use super::{WidgetWindow, hwnd_of, native, set_tool_window};
 use crate::{
     app,
     error::{Result, ResultLogExt},
-    state::settings::{self, DockMonitors, DockSide, HideMode},
+    state::settings::{self, DockMonitors, DockSettings, DockSide, HideMode},
     windows_api::{
         app_bar,
         monitor::{self, MonitorInfo},
@@ -84,6 +93,8 @@ pub struct DockState {
     /// physical rect of the whole (partly transparent) window
     pub window: Rect,
     pub side: DockSide,
+    /// id of the auxiliary dock, `None` for the main dock
+    pub aux: Option<String>,
 }
 
 impl DockState {
@@ -103,7 +114,9 @@ impl DockState {
             return self.to_physical(h.x, h.y, h.width, h.height);
         }
         // until the page reports it: the full edge strip
-        let thickness = (settings::get().dock.total_thickness() as f64 * self.scale).round() as i32;
+        let thickness = (effective_settings(self.aux.as_deref()).total_thickness() as f64
+            * self.scale)
+            .round() as i32;
         let w = self.window;
         match self.side {
             DockSide::Left => Rect {
@@ -163,6 +176,31 @@ pub struct DockInfo {
     pub monitor: MonitorInfo,
     pub rect: Rect,
     pub hidden: bool,
+    /// id of the auxiliary dock, `None` for the main dock
+    pub aux: Option<String>,
+    /// the settings this dock runs with (an auxiliary dock's differ from the main one's)
+    pub settings: DockSettings,
+}
+
+/// Settings a dock runs with: the main dock's, or an auxiliary dock's derived from them.
+pub fn effective_settings(aux: Option<&str>) -> DockSettings {
+    let all = settings::get();
+    match aux {
+        None => all.dock,
+        Some(id) => all
+            .aux_docks
+            .iter()
+            .find(|a| a.id == id)
+            .map(|a| a.effective(&all.dock))
+            .unwrap_or(all.dock),
+    }
+}
+
+/// Which pinned items a dock window shows: `None` for the main dock, the auxiliary
+/// dock's id otherwise (from its window label, `auxdock-<id>-<monitor>`).
+pub fn store_of(label: &str) -> Option<String> {
+    let rest = label.strip_prefix("auxdock-")?;
+    Some(rest.split('-').next()?.to_string())
 }
 
 pub static DOCKS: LazyLock<Mutex<HashMap<String, DockState>>> =
@@ -235,25 +273,48 @@ pub fn start(app: AppHandle) {
     request_reconcile();
 }
 
-fn label_for(monitor: &MonitorInfo) -> String {
-    format!("dock-{}", monitor.id as usize)
+fn label_for(monitor: &MonitorInfo, aux: Option<&str>) -> String {
+    match aux {
+        None => format!("dock-{}", monitor.id as usize),
+        Some(id) => format!("auxdock-{id}-{}", monitor.id as usize),
+    }
 }
 
-fn target_monitors() -> Vec<MonitorInfo> {
-    let settings = settings::get().dock;
-    if !settings.enabled {
-        return Vec::new();
+/// Enabled auxiliary docks (each on an edge the main dock does not use).
+fn enabled_aux(all: &settings::AppSettings) -> Vec<settings::AuxDockSettings> {
+    all.aux_docks
+        .iter()
+        .filter(|a| a.enabled && !(all.dock.enabled && a.position == all.dock.position))
+        .cloned()
+        .collect()
+}
+
+/// Every dock that should exist: (monitor, auxiliary dock id).
+fn targets() -> Vec<(MonitorInfo, Option<String>)> {
+    let all = settings::get();
+    let monitors = monitor::list();
+    let mut out = Vec::new();
+    if all.dock.enabled {
+        for m in &monitors {
+            if all.dock.monitors == DockMonitors::All || m.is_primary {
+                out.push((m.clone(), None));
+            }
+        }
     }
-    let all = monitor::list();
-    match settings.monitors {
-        DockMonitors::All => all,
-        DockMonitors::Primary => all.into_iter().filter(|m| m.is_primary).collect(),
+    if let Some(primary) = monitors.iter().find(|m| m.is_primary) {
+        for aux in enabled_aux(&all) {
+            out.push((primary.clone(), Some(aux.id)));
+        }
     }
+    out
 }
 
 fn reconcile_now(app: &AppHandle) -> Result<()> {
-    let targets = target_monitors();
-    let wanted: HashSet<String> = targets.iter().map(label_for).collect();
+    let targets = targets();
+    let wanted: HashSet<String> = targets
+        .iter()
+        .map(|(m, aux)| label_for(m, aux.as_deref()))
+        .collect();
 
     // remove docks that are no longer wanted
     let mut stale: Vec<DockState> = Vec::new();
@@ -265,6 +326,7 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
         keep
     });
     for dock in stale {
+        crate::widgets::memory::forget(&dock.label);
         app_bar::unregister(dock.hwnd);
         if let Some(window) = app.get_webview_window(&dock.label) {
             window.destroy().log_error();
@@ -273,8 +335,8 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
     }
 
     // create the missing ones
-    for monitor in targets {
-        let label = label_for(&monitor);
+    for (monitor, aux) in targets {
+        let label = label_for(&monitor, aux.as_deref());
         if DOCKS.lock().contains_key(&label) {
             continue;
         }
@@ -298,7 +360,7 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
         .inner_size(1.0, 1.0)
         .build()?;
         set_tool_window(&window, false)?;
-        let settings = settings::get().dock;
+        let settings = effective_settings(aux.as_deref());
         DOCKS.lock().insert(
             label.clone(),
             DockState {
@@ -316,6 +378,7 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
                 dragging: false,
                 window: Rect::default(),
                 side: settings.position,
+                aux,
             },
         );
         log::info!("dock {label} created on monitor {:?}", monitor.rect);
@@ -323,10 +386,20 @@ fn reconcile_now(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-/// Monitor work area without the space reserved by this dock itself.
-fn base_work_area(monitor: &MonitorInfo, hwnd: isize) -> Rect {
+/// Monitor work area without the space SideDock's own docks reserve: what the taskbar
+/// (and other applications' bars) leave. The toolbar and the docks are laid out in it.
+pub fn base_work_area(monitor: &MonitorInfo) -> Rect {
     let mut wa = monitor.work_area;
-    if let Some((r, side)) = app_bar::reserved(hwnd) {
+    let hwnds: Vec<isize> = DOCKS
+        .lock()
+        .values()
+        .filter(|d| d.monitor == monitor.id)
+        .map(|d| d.hwnd)
+        .collect();
+    for hwnd in hwnds {
+        let Some((r, side)) = app_bar::reserved(hwnd) else {
+            continue;
+        };
         match side {
             DockSide::Left if wa.left >= r.right => wa.left = r.left,
             DockSide::Right if wa.right <= r.left => wa.right = r.right,
@@ -343,11 +416,78 @@ fn base_work_area(monitor: &MonitorInfo, hwnd: isize) -> Rect {
     wa
 }
 
+/// A dock present on a monitor: its edge, its thickness (physical px), auxiliary or not.
+struct Bar {
+    side: DockSide,
+    thickness: i32,
+    aux: bool,
+}
+
+fn bars_on(monitor: &MonitorInfo) -> Vec<Bar> {
+    let all = settings::get();
+    let thickness =
+        |s: &DockSettings| (s.total_thickness() as f64 * monitor.scale_factor).round() as i32;
+    let mut bars = Vec::new();
+    if all.dock.enabled && (all.dock.monitors == DockMonitors::All || monitor.is_primary) {
+        bars.push(Bar {
+            side: all.dock.position,
+            thickness: thickness(&all.dock),
+            aux: false,
+        });
+    }
+    if monitor.is_primary {
+        for aux in enabled_aux(&all) {
+            let s = aux.effective(&all.dock);
+            bars.push(Bar {
+                side: s.position,
+                thickness: thickness(&s),
+                aux: true,
+            });
+        }
+    }
+    bars
+}
+
+/// The part of its edge a dock may use, along that edge (x for top / bottom docks, y
+/// for left / right ones), inside `area`.
+fn span(side: DockSide, bars: &[Bar], area: Rect) -> (i32, i32) {
+    let full = if side.is_horizontal() {
+        (area.left, area.right)
+    } else {
+        (area.top, area.bottom)
+    };
+    let aux_count = bars.iter().filter(|b| b.aux).count();
+    if aux_count == 0 {
+        return full;
+    }
+    let main = bars.iter().find(|b| !b.aux);
+    if aux_count == 1
+        && let Some(main) = main.filter(|m| m.side.is_horizontal())
+    {
+        // the main dock keeps its whole edge; a side dock makes room for it
+        if side == main.side || side.is_horizontal() {
+            return full;
+        }
+        return match main.side {
+            DockSide::Bottom => (area.top, area.bottom - main.thickness),
+            _ => (area.top + main.thickness, area.bottom),
+        };
+    }
+    if !side.is_horizontal() {
+        return full;
+    }
+    let inset = |s: DockSide| bars.iter().find(|b| b.side == s).map_or(0, |b| b.thickness);
+    (
+        area.left + inset(DockSide::Left),
+        area.right - inset(DockSide::Right),
+    )
+}
+
 fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
-    let settings = settings::get().dock;
     let Some(mut dock) = DOCKS.lock().get(label).cloned() else {
         return Ok(());
     };
+    let settings = effective_settings(dock.aux.as_deref());
     let Some(monitor) = monitor::by_id(dock.monitor) else {
         // the monitor vanished, reconcile will take care of it
         request_reconcile();
@@ -360,35 +500,44 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
         dock.side = side;
     }
 
-    let wa = base_work_area(&monitor, dock.hwnd);
+    let base = base_work_area(&monitor);
+    // a floating toolbar keeps its whole edge: docks go inside it
+    let strip = crate::widgets::toolbar::floating_strip(monitor.id);
+    let mut wa = base;
+    match strip {
+        Some((DockSide::Top, h)) => wa.top += h,
+        Some((DockSide::Bottom, h)) => wa.bottom -= h,
+        _ => {}
+    }
     let scale = monitor.scale_factor;
     let thickness = (settings.total_thickness() as f64 * scale).round() as i32;
     // the page sizes the bar itself (full width or fit content) inside a window that
-    // covers the whole edge plus the magnification room
+    // covers its part of the edge plus the magnification room
     let depth = thickness + (settings.magnification_room() as f64 * scale).round() as i32;
+    let (from, to) = span(side, &bars_on(&monitor), wa);
     let rect = match side {
         DockSide::Left => Rect {
             left: wa.left,
-            top: wa.top,
+            top: from,
             right: wa.left + depth,
-            bottom: wa.bottom,
+            bottom: to,
         },
         DockSide::Right => Rect {
             left: wa.right - depth,
-            top: wa.top,
+            top: from,
             right: wa.right,
-            bottom: wa.bottom,
+            bottom: to,
         },
         DockSide::Top => Rect {
-            left: wa.left,
+            left: from,
             top: wa.top,
-            right: wa.right,
+            right: to,
             bottom: wa.top + depth,
         },
         DockSide::Bottom => Rect {
-            left: wa.left,
+            left: from,
             top: wa.bottom - depth,
-            right: wa.right,
+            right: to,
             bottom: wa.bottom,
         },
     };
@@ -396,30 +545,32 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
     // reserve screen space like the native taskbar only when the dock never hides
     let reserve = settings.hide_mode == HideMode::Never && dock.ready && !dock.fullscreen_hidden;
     if reserve {
+        // on the toolbar's edge the reservation covers the toolbar too, so maximized
+        // windows stay clear of both
         let bar = match side {
             DockSide::Left => Rect {
                 left: wa.left,
-                top: wa.top,
+                top: from,
                 right: wa.left + thickness,
-                bottom: wa.bottom,
+                bottom: to,
             },
             DockSide::Right => Rect {
                 left: wa.right - thickness,
-                top: wa.top,
+                top: from,
                 right: wa.right,
-                bottom: wa.bottom,
+                bottom: to,
             },
             DockSide::Top => Rect {
-                left: wa.left,
-                top: wa.top,
-                right: wa.right,
+                left: from,
+                top: base.top,
+                right: to,
                 bottom: wa.top + thickness,
             },
             DockSide::Bottom => Rect {
-                left: wa.left,
+                left: from,
                 top: wa.bottom - thickness,
-                right: wa.right,
-                bottom: wa.bottom,
+                right: to,
+                bottom: base.bottom,
             },
         };
         app_bar::register(dock.hwnd, bar, side).log_error();
@@ -446,6 +597,8 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
         monitor,
         rect,
         hidden: dock.hidden,
+        aux: dock.aux.clone(),
+        settings,
     };
     if let Some(stored) = DOCKS.lock().get_mut(label) {
         stored.window = rect;
@@ -459,10 +612,12 @@ fn layout_now(app: &AppHandle, label: &str) -> Result<()> {
 pub fn info(label: &str) -> Option<DockInfo> {
     let dock = DOCKS.lock().get(label).cloned()?;
     Some(DockInfo {
+        settings: effective_settings(dock.aux.as_deref()),
         label: dock.label,
         monitor: monitor::by_id(dock.monitor)?,
         rect: dock.window,
         hidden: dock.hidden,
+        aux: dock.aux,
     })
 }
 

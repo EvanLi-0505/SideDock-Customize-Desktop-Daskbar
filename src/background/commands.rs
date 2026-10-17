@@ -14,7 +14,7 @@ use crate::{
     error::{AppError, Result},
     logger,
     modules::{
-        apps, hotkeys, icons,
+        apps, custom_buttons, hotkeys, icons,
         shell_flyouts::{self, Flyout},
         start_apps, system, system_tray, win_key,
     },
@@ -99,6 +99,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         set_keyboard_layout,
         set_bluetooth,
         media_command,
+        get_media_now,
         power_action,
         empty_recycle_bin,
         // popup & tooltip
@@ -153,28 +154,37 @@ async fn reset_settings(app: AppHandle, section: String) -> Result<AppSettings> 
     app::apply_settings(&app, current)
 }
 
+/// The pinned items of the calling dock (an auxiliary dock has its own).
 #[tauri::command]
-async fn get_dock_items() -> DockItems {
-    dock_items::get()
+async fn get_dock_items(window: WebviewWindow, store: Option<String>) -> DockItems {
+    let store = store.or_else(|| dock::store_of(window.label()));
+    dock_items::get_for(store.as_deref())
 }
 
 /// `source` identifies the sender so it can ignore its own echo.
 #[tauri::command]
-async fn save_dock_items(items: DockItems, source: String) -> Result<DockItems> {
-    let saved = dock_items::replace(items)?;
-    app::broadcast_dock_items(&source);
+async fn save_dock_items(
+    window: WebviewWindow,
+    items: DockItems,
+    source: String,
+    store: Option<String>,
+) -> Result<DockItems> {
+    let store = store.or_else(|| dock::store_of(window.label()));
+    let saved = dock_items::replace_for(store.as_deref(), items)?;
+    app::broadcast_dock_items(&source, store.as_deref());
     Ok(saved)
 }
 
 #[tauri::command]
 async fn reset_dock_items() -> Result<DockItems> {
     let items = dock_items::reset()?;
-    app::broadcast_dock_items("backend");
+    app::broadcast_dock_items("backend", None);
     Ok(items)
 }
 
-fn pin_items(new_items: Vec<dock_items::AppItem>) -> Result<usize> {
-    let mut items = dock_items::get();
+/// Adds apps to a dock (`store`: `None` = main dock), skipping those already there.
+fn pin_items(store: Option<&str>, new_items: Vec<dock_items::AppItem>) -> Result<usize> {
+    let mut items = dock_items::get_for(store);
     let existing: Vec<String> = items
         .all()
         .filter_map(|i| match i {
@@ -191,14 +201,21 @@ fn pin_items(new_items: Vec<dock_items::AppItem>) -> Result<usize> {
         added += 1;
     }
     if added > 0 {
-        dock_items::replace(items)?;
-        app::broadcast_dock_items("backend");
+        dock_items::replace_for(store, items)?;
+        app::broadcast_dock_items("backend", store);
     }
     Ok(added)
 }
 
+/// Pins files to a dock: `store` names an auxiliary dock (settings page); without it,
+/// the dock the files were dropped on.
 #[tauri::command]
-async fn dock_pin_paths(paths: Vec<PathBuf>) -> Result<usize> {
+async fn dock_pin_paths(
+    window: WebviewWindow,
+    paths: Vec<PathBuf>,
+    store: Option<String>,
+) -> Result<usize> {
+    let store = store.or_else(|| dock::store_of(window.label()));
     let items = paths
         .iter()
         .filter_map(|p| match native_taskbar::item_from_path(p) {
@@ -209,12 +226,12 @@ async fn dock_pin_paths(paths: Vec<PathBuf>) -> Result<usize> {
             }
         })
         .collect();
-    pin_items(items)
+    pin_items(store.as_deref(), items)
 }
 
-/// Pins an app of the launcher (Start menu app) to the dock.
+/// Pins an app of the launcher (Start menu app) to the main dock or an auxiliary one.
 #[tauri::command]
-async fn dock_pin_start_app(id: String) -> Result<usize> {
+async fn dock_pin_start_app(id: String, store: Option<String>) -> Result<usize> {
     let entry = start_apps::list()
         .into_iter()
         .find(|a| a.id == id)
@@ -234,13 +251,13 @@ async fn dock_pin_start_app(id: String) -> Result<usize> {
         prevent_pinning: false,
         relaunch: None,
     };
-    pin_items(vec![item])
+    pin_items(store.as_deref(), vec![item])
 }
 
 #[tauri::command]
 async fn dock_import_taskbar_pins() -> Result<usize> {
     let items = native_taskbar::pinned_apps()?;
-    let count = pin_items(items)?;
+    let count = pin_items(None, items)?;
     log::info!("imported {count} pinned items from the Windows taskbar");
     Ok(count)
 }
@@ -267,8 +284,8 @@ async fn tray_icon_action(id: String, action: system_tray::TrayAction) -> Result
     system_tray::action(&id, action)
 }
 
-/// Runs a custom toolbar button. Only the id comes from the page: what it opens is read
-/// from the settings the user saved.
+/// Runs a custom toolbar button. Only the id comes from the page: what it runs is read
+/// from the settings the user saved (`modules/custom_buttons.rs`).
 #[tauri::command]
 async fn toolbar_run_custom(id: String) -> Result<()> {
     if !throttle(&format!("custom:{id}"), Duration::from_millis(800)) {
@@ -280,18 +297,7 @@ async fn toolbar_run_custom(id: String) -> Result<()> {
         .into_iter()
         .find(|b| b.id == id)
         .ok_or("unknown custom button")?;
-    let target = button.target.trim();
-    if button.is_url() {
-        return shell::open_uri(target);
-    }
-    let path = PathBuf::from(target);
-    // programs start in their own folder, like from a shortcut
-    let dir = path
-        .is_file()
-        .then(|| path.parent().map(PathBuf::from))
-        .flatten();
-    let args = Some(button.args.trim()).filter(|a| !a.is_empty());
-    shell::launch(target, args, dir.as_deref(), false)
+    custom_buttons::run(&button)
 }
 
 /// Moves a tray icon to the toolbar (at `index` among its icons) or to the overflow
@@ -616,6 +622,15 @@ async fn media_command(command: media::MediaCommand) -> Result<()> {
     media::send(command)
 }
 
+/// What is playing right now (the window switcher asks when it opens; the poller only
+/// follows the media session while a media module or item is shown).
+#[tauri::command]
+async fn get_media_now() -> Option<media::MediaInfo> {
+    let _com = ComGuard::new();
+    let manager = media::manager().ok()?;
+    media::current(&manager, None).ok().flatten()
+}
+
 #[tauri::command]
 async fn power_action(action: power::PowerAction) -> Result<()> {
     if !throttle("power-action", Duration::from_secs(3)) {
@@ -835,7 +850,7 @@ async fn clear_data(app: AppHandle, kind: String) -> Result<ClearResult> {
             };
             app::apply_settings(&app, defaults)?;
             dock_items::reset()?;
-            app::broadcast_dock_items("backend");
+            app::broadcast_dock_items("backend", None);
             Ok(ClearResult {
                 skipped: 0,
                 restart_required: false,

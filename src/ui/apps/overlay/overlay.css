@@ -525,6 +525,20 @@ body {
         font-size: 11px;
         line-height: 18px;
       }
+      /* minimized / playing media */
+      .badge {
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgb(255 255 255 / 0.22);
+
+        &.playing {
+          background: var(--accent);
+        }
+      }
     }
   }
 
@@ -535,29 +549,6 @@ body {
     background: rgb(52 56 64 / 0.6);
     border: 1px solid rgb(255 255 255 / 0.14);
     pointer-events: none;
-  }
-
-  .placeholder {
-    position: absolute;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: rgb(255 255 255 / 0.08);
-    pointer-events: none;
-
-    img {
-      width: 40%;
-      max-width: 64px;
-      aspect-ratio: 1;
-    }
-
-    &.big {
-      inset: 0;
-      gap: 12px;
-      align-content: center;
-      font-size: 14px;
-      color: rgb(255 255 255 / 0.75);
-    }
   }
 
   .main-frame {
@@ -593,8 +584,64 @@ body {
       font-weight: 600;
     }
     .app-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 12px;
       color: rgb(255 255 255 / 0.7);
+    }
+    .tag {
+      padding: 0 6px;
+      border-radius: 6px;
+      background: rgb(255 255 255 / 0.18);
+      color: #fff;
+      font-size: 11px;
+      line-height: 17px;
+    }
+  }
+
+  /* the window of the app playing media: what plays, and its buttons */
+  .now-playing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-left: 18px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    background: var(--overlay-glass);
+    border: 1px solid var(--overlay-border);
+    text-shadow: none;
+
+    .np-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      line-height: 1.25;
+    }
+    .np-state {
+      color: rgb(255 255 255 / 0.65);
+      font-size: 11px;
+    }
+    .np-title {
+      max-width: 22vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12.5px;
+    }
+    button {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: #fff;
+
+      &:hover {
+        background: var(--overlay-glass-hover);
+      }
     }
   }
 

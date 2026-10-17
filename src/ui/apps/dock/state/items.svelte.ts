@@ -15,6 +15,7 @@ import type {
   UserAppWindow,
 } from "@shared/types.ts";
 import { systemState } from "./system.svelte.ts";
+import { layout } from "./layout.svelte.ts";
 
 interface DockState {
   isReorderDisabled: boolean;
@@ -171,8 +172,11 @@ export const dockActions = {
 // ---------------- lifecycle ----------------
 
 export async function initItems(): Promise<void> {
-  await on<{ source: string; items: DockItems }>(Events.DockItemsChanged, ({ source, items }) => {
-    if (source === CLIENT_ID) return;
+  // each dock has its own items: the main one (store null) or an auxiliary one
+  const store = () => systemState.dock?.aux ?? null;
+  await on<{ source: string; store: string | null; items: DockItems }>(Events.DockItemsChanged, (p) => {
+    const { source, items } = p;
+    if (source === CLIENT_ID || (p.store ?? null) !== store()) return;
     remoteUpdate = true;
     dock = fromStored(items);
   });
@@ -190,8 +194,10 @@ export async function initItems(): Promise<void> {
       save(snapshot);
     });
 
-    // keep temporal (unpinned, running) items in sync with the open windows
+    // keep temporal (unpinned, running) items in sync with the open windows; an
+    // auxiliary dock only holds what the user pinned
     $effect(() => {
+      if (layout.aux) return;
       const windows = systemState.windows;
       const state = dock;
       const apps = state.items.filter((i): i is AppDockItem => i.type === "App");

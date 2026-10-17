@@ -18,10 +18,12 @@ src/
                          atomic writes
     modules/             OS watchers: app windows, system poller, autostart, icon cache,
                          system tray (receiver of the Explorer hook), taskbar visibility,
-                         shell flyouts (quick settings / notification center toggles)
+                         shell flyouts (quick settings / notification center toggles),
+                         custom toolbar buttons (open / command / registry)
     widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
                          tooltip, overlay (launcher / window switcher), toolbar, settings;
-                         memory (releases the memory of idle helper windows)
+                         memory (releases the memory of idle helper windows and of
+                         auto-hidden auxiliary docks)
     windows_api/         thin Win32/WinRT wrappers (AppBar, hooks, shell, icons, media, audio,
                          network status, CPU / memory / network speed...)
   ui/                    Svelte 5 frontend (Vite, multi-page)
@@ -52,6 +54,25 @@ scripts/package.mjs      portable zip packaging
   loop keeps the window in place.
 * Auto-hide runs in the same backend loop so it keeps working while a webview is
   throttled. A hidden dock slides its content out and becomes click-through.
+* Auxiliary docks (`auxdock-<id>-<monitor>`, primary monitor only) are ordinary dock
+  windows running the same page. `AuxDockSettings::effective` derives their
+  `DockSettings` from the main dock's (own edge, size, mode, auto-hide, magnification,
+  overflow; no titles, counters or split windows); `DockInfo` carries them, so the page
+  reads its settings from there. Their pinned items live in `config/aux_dock_items.json`
+  (`dock_items::get_for` / `replace_for`, keyed by the dock id; modules allowed, running
+  apps never stored); the system poller also counts the modules of enabled auxiliary
+  docks (`modules/system.rs`, `active_modules`); the
+  item commands pick the store from the calling window's label, or from an explicit
+  `store` argument (settings page, launcher). The page shows no running apps there and
+  clicks focus the most recent window or launch.
+* Dock layout (`widgets/dock/mod.rs`, `bars_on` / `span`): with no auxiliary dock every
+  dock uses its whole edge. With one auxiliary dock and the main dock at the top or
+  bottom, the main dock keeps its edge and a side dock is shortened. Otherwise left and
+  right docks span the full height and top / bottom docks fit between them. Docks are
+  laid out in `base_work_area` (the work area without SideDock's own reservations),
+  inside a floating toolbar's strip (`toolbar::floating_strip`); the toolbar asks the
+  docks to lay out again when its strip changes. Saving settings swaps an auxiliary
+  dock's edge with the main dock's when the main dock moves onto it.
 * Overflow (`ui/apps/dock/fit.ts`) and magnification (`ui/apps/dock/wave.ts`) only write
   CSS variables and transforms, so the page never re-layouts per animation frame.
 * Global shortcuts (`modules/hotkeys.rs`) use `RegisterHotKey` on a dedicated
@@ -67,7 +88,17 @@ scripts/package.mjs      portable zip packaging
   each opening. Launcher apps come from `shell:AppsFolder` (`modules/start_apps.rs`);
   their icons are extracted in the background after each scan so the launcher only ever
   reads the icon cache. Switcher previews are DWM thumbnails placed from rects computed
-  by the page.
+  by the page. DWM keeps a minimized window's last frame, so minimized windows get a
+  thumbnail too, sized from their restored rect (`UserAppWindow.restored_rect`, from
+  `GetWindowPlacement`). The switcher polls the media session every 2 s while open and
+  puts the now-playing controls on the window of the matching app (HTML cannot be drawn
+  over a DWM thumbnail, so they sit in the title row).
+* Custom toolbar buttons (`modules/custom_buttons.rs`) are run by id: the page never
+  sends what to run. Command buttons go through `ShellExecuteW` (`runas` when
+  elevated): PowerShell gets the script as `-EncodedCommand` (UTF-16LE base64), a
+  multi-line CMD script is written to `data/runtime/commands/<id>.cmd` (UTF-8, `chcp
+  65001`). Registry buttons set Registry Editor's `LastKey` (its only way to open at a
+  path) and start it; an open Registry Editor is brought to the front instead.
 * Icons (`sdicon://`) already in memory are answered synchronously; the others are
   extracted by a small MTA worker pool (`utils::run_in_pool`).
 * Popups (context menus, window list, calendar, keyboard, bluetooth, power) share one
@@ -94,8 +125,11 @@ scripts/package.mjs      portable zip packaging
 
 * Never write to the user profile: every path comes from `paths::get()`; every webview is
   created through `WidgetWindow::builder`, which pins the WebView2 profile to `data/`.
-* Only the dock may reserve screen space (AppBar), and only when the user picks "never
-  hide". The toolbar never does: changing the work area makes Explorer rearrange the
+  The only writes outside `data/` are the autostart Run value, the "SideDock Win Key"
+  scheduled task and Registry Editor's `LastKey` (registry buttons), all listed in the
+  README.
+* Only docks may reserve screen space (AppBar), and only when the user picks "never
+  hide" for that dock. The toolbar never does: changing the work area makes Explorer rearrange the
   desktop icons. It floats, hides, or sits in the hidden taskbar's reserved place.
 * Hiding the Windows taskbar only hides its windows (`SW_HIDE`); its auto-hide state and
   reserved work area are never touched, so the desktop layout cannot change. A marker in

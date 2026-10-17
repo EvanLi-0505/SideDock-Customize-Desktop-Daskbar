@@ -4,7 +4,7 @@
   import { onMount } from "svelte";
   import { flip } from "svelte/animate";
   import { t } from "@shared/i18n/index.svelte.ts";
-  import { api, Events, on } from "@shared/ipc.ts";
+  import { api, Events, onSelf } from "@shared/ipc.ts";
   import type { AppDockItem, DockItem } from "@shared/types.ts";
   import { dockState, getWindowsForItem, listToGroups } from "../state/items.svelte.ts";
   import { settingsState } from "@shared/state/settings.svelte.ts";
@@ -135,7 +135,7 @@
   });
 
   onMount(() => {
-    const unlisten = on(Events.DockPointerLeave, () => wave?.leave());
+    const unlisten = onSelf(Events.DockPointerLeave, () => wave?.leave());
     const move = (e: PointerEvent) => wave?.pointer(e.clientX, e.clientY);
     const out = (e: MouseEvent) => {
       if (!e.relatedTarget) wave?.leave();
@@ -183,10 +183,17 @@
         api.dockSetHitbox(box);
       }
     };
+    // the bar may move without changing size (centered when it fits its content, the
+    // window resized by the backend): watch the window too
     const observer = new ResizeObserver(report);
     observer.observe(bar);
+    observer.observe(root);
+    window.addEventListener("resize", report);
     report();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", report);
+    };
   });
 
   // ---------------- frosted glass backdrop ----------------
@@ -238,11 +245,15 @@
       grow = { start, end };
       send();
     };
+    // as for the hitbox: the bar also moves when only the window is resized
     const observer = new ResizeObserver(measure);
     observer.observe(bar);
+    observer.observe(root);
+    window.addEventListener("resize", measure);
     measure();
     return () => {
       observer.disconnect();
+      window.removeEventListener("resize", measure);
       waveRef.onGrow = null;
     };
   });
@@ -276,7 +287,7 @@
       if (!frame) frame = requestAnimationFrame(update);
     };
     const leave = () => (glare = false);
-    const unlisten = on(Events.DockPointerLeave, leave);
+    const unlisten = onSelf(Events.DockPointerLeave, leave);
     window.addEventListener("pointermove", move);
     document.addEventListener("mouseleave", leave);
     return () => {

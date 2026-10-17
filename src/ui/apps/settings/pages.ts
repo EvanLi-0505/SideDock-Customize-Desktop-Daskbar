@@ -5,6 +5,7 @@ import type { IconName } from "@shared/components/Icon.svelte";
 import Home from "./pages/Home.svelte";
 import General from "./pages/General.svelte";
 import Dock from "./pages/Dock.svelte";
+import AuxDocks from "./pages/AuxDocks.svelte";
 import Modules from "./pages/Modules.svelte";
 import Shortcuts from "./pages/Shortcuts.svelte";
 import Launcher from "./pages/Launcher.svelte";
@@ -17,6 +18,7 @@ export type PageId =
   | "general"
   | "shortcuts"
   | "dock"
+  | "aux"
   | "modules"
   | "launcher"
   | "toolbar"
@@ -41,6 +43,7 @@ export const PAGES: PageEntry[] = [
   { id: "general", label: "nav.general", icon: "Settings", group: 0, component: General },
   { id: "shortcuts", label: "nav.shortcuts", icon: "Keyboard", group: 0, component: Shortcuts },
   { id: "dock", label: "nav.dock", icon: "PanelLeft", group: 1, component: Dock },
+  { id: "aux", label: "nav.aux", icon: "PanelRight", group: 1, component: AuxDocks },
   { id: "modules", label: "nav.modules", icon: "LayoutDashboard", group: 1, component: Modules },
   { id: "launcher", label: "nav.launcher", icon: "LayoutGrid", group: 1, component: Launcher },
   { id: "toolbar", label: "nav.toolbar", icon: "PanelBottom", group: 1, component: Toolbar },

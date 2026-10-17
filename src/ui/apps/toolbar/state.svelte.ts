@@ -1,6 +1,6 @@
 // Live state of a toolbar: its placement, the focused window, system modules, tray icons.
 
-import { api, Events, on } from "@shared/ipc.ts";
+import { api, Events, on, onSelf } from "@shared/ipc.ts";
 import type {
   FocusedApp,
   Placement,
@@ -56,7 +56,7 @@ export const toolbar = {
 export async function initToolbarState(): Promise<void> {
   // subscribe first so no event is lost between the fetch and the listen
   await Promise.all([
-    on<ToolbarInfo>(Events.ToolbarInfo, (i) => (info = i)),
+    onSelf<ToolbarInfo>(Events.ToolbarInfo, (i) => (info = i)),
     on<UserAppWindow[]>(Events.WindowsChanged, (list) => (windows = list)),
     on<FocusedApp>(Events.FocusChanged, (f) => (focused = f)),
     on<SystemState>(Events.SystemState, (s) => (system = s)),

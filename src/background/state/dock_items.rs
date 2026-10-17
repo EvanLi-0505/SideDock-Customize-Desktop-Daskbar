@@ -1,4 +1,8 @@
-use std::{collections::HashSet, path::PathBuf, sync::LazyLock};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::LazyLock,
+};
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -158,6 +162,58 @@ pub fn replace(mut items: DockItems) -> Result<DockItems> {
         *guard = items;
     }
     Ok(guard.clone())
+}
+
+// ---------------- auxiliary docks ----------------
+//
+// Each auxiliary dock (`settings::AUX_DOCK_IDS`) has its own items, kept in
+// `aux_dock_items.json` by dock id: pinned apps and files, separators and modules, like
+// the main dock, but never running (unpinned) apps.
+
+static AUX_ITEMS: LazyLock<RwLock<HashMap<String, DockItems>>> = LazyLock::new(|| {
+    let mut all: HashMap<String, DockItems> = storage::load_json(&aux_file_path());
+    all.retain(|id, _| crate::state::settings::AUX_DOCK_IDS.contains(&id.as_str()));
+    for items in all.values_mut() {
+        items.sanitize();
+    }
+    RwLock::new(all)
+});
+
+fn aux_file_path() -> PathBuf {
+    paths::get().config.join("aux_dock_items.json")
+}
+
+fn empty() -> DockItems {
+    DockItems {
+        is_reorder_disabled: false,
+        left: Vec::new(),
+        center: Vec::new(),
+        right: Vec::new(),
+    }
+}
+
+/// Items of a dock: the main one (`None`) or an auxiliary one.
+pub fn get_for(store: Option<&str>) -> DockItems {
+    match store {
+        None => get(),
+        Some(id) => AUX_ITEMS.read().get(id).cloned().unwrap_or_else(empty),
+    }
+}
+
+pub fn replace_for(store: Option<&str>, mut items: DockItems) -> Result<DockItems> {
+    let Some(id) = store else {
+        return replace(items);
+    };
+    if !crate::state::settings::AUX_DOCK_IDS.contains(&id) {
+        return Err(format!("unknown dock {id}").into());
+    }
+    items.sanitize();
+    let mut all = AUX_ITEMS.write();
+    if all.get(id) != Some(&items) {
+        all.insert(id.to_string(), items.clone());
+        storage::save_json(&aux_file_path(), &*all)?;
+    }
+    Ok(items)
 }
 
 pub fn reset() -> Result<DockItems> {

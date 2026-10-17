@@ -43,10 +43,23 @@ export function customButtonOf(id: ToolbarItemId, buttons: CustomButton[]): Cust
   return buttons.find((b) => b.id === key);
 }
 
+/** A web (or other protocol) address rather than a path ("C:\\" is a drive, not a scheme). */
+export function isUrlTarget(target: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:(\/\/)?/i.test(target.trim()) && !/^[a-z]:\\/i.test(target.trim());
+}
+
+/** The icon shown for a custom button when it does not use its target's own icon. */
+export function customButtonIcon(button: CustomButton): IconName {
+  if (button.icon) return button.icon as IconName;
+  if (button.kind === "command") return "Terminal";
+  if (button.kind === "registry") return "Database";
+  return isUrlTarget(button.target) ? "Globe" : "MousePointerClick";
+}
+
 /** Name and icon of any item, built-in or custom. */
 export function describeItem(id: ToolbarItemId, buttons: CustomButton[]): { icon: IconName; label: string } {
   const custom = customButtonOf(id, buttons);
-  if (custom) return { icon: (custom.icon || "MousePointerClick") as IconName, label: custom.name || custom.target };
+  if (custom) return { icon: customButtonIcon(custom), label: custom.name || custom.target || custom.command };
   const meta = TOOLBAR_ITEMS.find((i) => i.id === id);
   return meta ? { icon: meta.icon, label: t(meta.label) } : { icon: "Puzzle", label: id };
 }

@@ -34,6 +34,8 @@ pub struct UserAppWindow {
     pub path: Option<PathBuf>,
     pub monitor: isize,
     pub rect: Option<Rect>,
+    /// size it is restored to, while minimized (previews keep its proportions)
+    pub restored_rect: Option<Rect>,
     pub is_iconic: bool,
     pub is_zoomed: bool,
     pub is_fullscreen: bool,
@@ -102,6 +104,10 @@ fn snapshot(window: Window, last_foreground_at: i64) -> UserAppWindow {
         path,
         monitor: window.monitor(),
         rect: window.rect(),
+        restored_rect: window
+            .is_minimized()
+            .then(|| window.restored_rect())
+            .flatten(),
         is_iconic: window.is_minimized(),
         is_zoomed: window.is_maximized(),
         is_fullscreen: window.is_fullscreen(),
@@ -220,6 +226,7 @@ fn handle_event(ev: event_hook::WinEvent) -> bool {
                     || w.is_fullscreen != fullscreen
                     || w.monitor != monitor;
                 w.rect = rect;
+                w.restored_rect = iconic.then(|| window.restored_rect()).flatten();
                 w.is_iconic = iconic;
                 w.is_zoomed = zoomed;
                 w.is_fullscreen = fullscreen;
@@ -231,6 +238,7 @@ fn handle_event(ev: event_hook::WinEvent) -> bool {
         EVENT_SYSTEM_MINIMIZESTART | EVENT_SYSTEM_MINIMIZEEND => {
             if let Some(w) = WINDOWS.write().iter_mut().find(|w| w.hwnd == ev.hwnd) {
                 w.is_iconic = ev.event == EVENT_SYSTEM_MINIMIZESTART;
+                w.restored_rect = w.is_iconic.then(|| window.restored_rect()).flatten();
                 return true;
             }
             false

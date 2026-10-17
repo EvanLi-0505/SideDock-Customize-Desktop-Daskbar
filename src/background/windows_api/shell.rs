@@ -27,7 +27,13 @@ use windows::{
 use super::{ComGuard, from_wide, to_wide};
 use crate::error::Result;
 
-fn shell_execute(verb: &str, file: &str, params: Option<&str>, dir: Option<&Path>) -> Result<()> {
+fn shell_execute(
+    verb: &str,
+    file: &str,
+    params: Option<&str>,
+    dir: Option<&Path>,
+    show: SHOW_WINDOW_CMD,
+) -> Result<()> {
     let verb = to_wide(verb);
     let file_w = to_wide(file);
     let params_w = params.map(to_wide);
@@ -43,7 +49,7 @@ fn shell_execute(verb: &str, file: &str, params: Option<&str>, dir: Option<&Path
             dir_w
                 .as_ref()
                 .map_or(PCWSTR::null(), |d| PCWSTR(d.as_ptr())),
-            SHOW_WINDOW_CMD(SW_SHOWNORMAL.0),
+            show,
         )
     };
     if res.0 as isize <= 32 {
@@ -65,15 +71,40 @@ pub fn launch(
         .starts_with("shell:appsfolder\\")
     {
         // packaged apps can only be activated through explorer
-        return shell_execute("open", "explorer.exe", Some(program), None);
+        return shell_execute("open", "explorer.exe", Some(program), None, SW_SHOWNORMAL);
     }
     let dir = working_dir.filter(|d| d.is_dir());
-    shell_execute(if elevated { "runas" } else { "open" }, program, args, dir)
+    shell_execute(
+        if elevated { "runas" } else { "open" },
+        program,
+        args,
+        dir,
+        SW_SHOWNORMAL,
+    )
+}
+
+/// Starts a program with a given window state (`SW_HIDE` for commands run silently).
+pub fn run(
+    program: &str,
+    args: Option<&str>,
+    working_dir: Option<&Path>,
+    elevated: bool,
+    show: SHOW_WINDOW_CMD,
+) -> Result<()> {
+    let _com = ComGuard::new();
+    let dir = working_dir.filter(|d| d.is_dir());
+    shell_execute(
+        if elevated { "runas" } else { "open" },
+        program,
+        args,
+        dir,
+        show,
+    )
 }
 
 pub fn open_uri(uri: &str) -> Result<()> {
     let _com = ComGuard::new();
-    shell_execute("open", uri, None, None)
+    shell_execute("open", uri, None, None, SW_SHOWNORMAL)
 }
 
 pub fn reveal_in_explorer(path: &Path) -> Result<()> {
@@ -84,6 +115,7 @@ pub fn reveal_in_explorer(path: &Path) -> Result<()> {
             "explorer.exe",
             Some(&format!("\"{}\"", path.display())),
             None,
+            SW_SHOWNORMAL,
         );
     }
     shell_execute(
@@ -91,6 +123,7 @@ pub fn reveal_in_explorer(path: &Path) -> Result<()> {
         "explorer.exe",
         Some(&format!("/select,\"{}\"", path.display())),
         None,
+        SW_SHOWNORMAL,
     )
 }
 

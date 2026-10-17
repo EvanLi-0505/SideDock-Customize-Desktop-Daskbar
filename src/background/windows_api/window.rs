@@ -121,6 +121,28 @@ impl Window {
         unsafe { IsIconic(self.hwnd()).as_bool() }
     }
 
+    /// The rect the window gets back when restored (a minimized window's own rect is a
+    /// tiny caption far off screen). Only its size matters to callers: it is in
+    /// work-area coordinates.
+    pub fn restored_rect(self) -> Option<Rect> {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            GetWindowPlacement, WINDOWPLACEMENT, WPF_RESTORETOMAXIMIZED,
+        };
+        let mut placement = WINDOWPLACEMENT {
+            length: std::mem::size_of::<WINDOWPLACEMENT>() as u32,
+            ..Default::default()
+        };
+        unsafe { GetWindowPlacement(self.hwnd(), &mut placement) }.ok()?;
+        if placement.flags.0 & WPF_RESTORETOMAXIMIZED.0 != 0 {
+            // it comes back maximized: the size of its monitor's work area
+            return super::monitor::list()
+                .into_iter()
+                .find(|m| m.id == self.monitor())
+                .map(|m| m.work_area);
+        }
+        Some(placement.rcNormalPosition.into())
+    }
+
     pub fn is_maximized(self) -> bool {
         unsafe { IsZoomed(self.hwnd()).as_bool() }
     }

@@ -34,8 +34,9 @@ function without(list: DockItem[], predicate: (i: DockItem) => boolean) {
 
 export const dockItemsActions = {
   async init() {
-    await on<{ source: string; items: DockItems }>(Events.DockItemsChanged, (p) => {
-      if (p.source !== SOURCE) items = p.items;
+    await on<{ source: string; store: string | null; items: DockItems }>(Events.DockItemsChanged, (p) => {
+      // auxiliary docks have their own items
+      if (p.source !== SOURCE && !p.store) items = p.items;
     });
     items = await api.getDockItems();
   },

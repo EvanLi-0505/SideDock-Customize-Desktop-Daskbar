@@ -11,6 +11,7 @@ import BluetoothPanel from "./kinds/BluetoothPanel.svelte";
 import PowerPanel from "./kinds/PowerPanel.svelte";
 import OverflowGrid from "./kinds/OverflowGrid.svelte";
 import TrayOverflow from "./kinds/TrayOverflow.svelte";
+import Notice from "./kinds/Notice.svelte";
 
 export interface PopupProps {
   data: any;
@@ -30,4 +31,5 @@ export const POPUPS: Record<string, Component<PopupProps>> = {
   power: PowerPanel,
   overflow: OverflowGrid,
   "tray-overflow": TrayOverflow,
+  notice: Notice,
 };

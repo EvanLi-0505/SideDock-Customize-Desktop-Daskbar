@@ -51,16 +51,26 @@ pub fn get() -> SystemState {
     STATE.read().clone()
 }
 
-/// What is shown right now: the dock's modules plus what the toolbar's items need.
+/// What is shown right now: the modules of the main dock and of the auxiliary docks that
+/// are on, plus what the toolbar's items need.
 fn active_modules() -> HashSet<String> {
-    let mut active: HashSet<String> = dock_items::get()
-        .all()
+    let all = settings::get();
+    let mut docks = vec![dock_items::get()];
+    docks.extend(
+        all.aux_docks
+            .iter()
+            .filter(|a| a.enabled)
+            .map(|a| dock_items::get_for(Some(&a.id))),
+    );
+    let mut active: HashSet<String> = docks
+        .iter()
+        .flat_map(|d| d.all())
         .filter_map(|item| match item {
             DockItem::Module { module, .. } => Some(module.clone()),
             _ => None,
         })
         .collect();
-    let toolbar = settings::get().toolbar;
+    let toolbar = all.toolbar;
     if toolbar.enabled {
         let needs: [(&str, &[&str]); 8] = [
             ("battery", &["power"]),
@@ -96,7 +106,7 @@ pub fn refresh_now(what: &str) {
     match what {
         "bluetooth" => state.bluetooth = radios::bluetooth_enabled().ok().flatten(),
         "keyboard" => {
-            let active = keyboard::active_layout_for(apps::last_external_foreground());
+            let active = keyboard::active_input(apps::last_external_foreground());
             state.keyboard = keyboard::list(active);
         }
         "recycle-bin" => state.recycle_bin = Some(shell::recycle_bin_info()),
@@ -105,7 +115,38 @@ pub fn refresh_now(what: &str) {
     app::emit(EVENT_SYSTEM_STATE, &*state);
 }
 
+/// Follows the input language (Win+Space, Alt+Shift, a language picked in the dock) and the
+/// Chinese / English mode of an IME (Shift) closely: Windows sends no notification for
+/// them to other applications, so the focused window's input is compared every 150 ms.
+/// That is a few cheap calls; the list is only rebuilt and sent when something changed.
+fn watch_keyboard() {
+    crate::utils::spawn_supervised("keyboard-watch", || {
+        const EVERY: Duration = Duration::from_millis(150);
+        let mut last = keyboard::ActiveInput::default();
+        let mut wanted = false;
+        let mut tick: u32 = 0;
+        loop {
+            std::thread::sleep(EVERY);
+            // whether a dock / the toolbar shows the keyboard, checked about once a second
+            if tick.is_multiple_of(7) {
+                wanted = active_modules().contains("keyboard");
+            }
+            tick = tick.wrapping_add(1);
+            if !wanted {
+                last = keyboard::ActiveInput::default();
+                continue;
+            }
+            let active = keyboard::active_input(apps::last_external_foreground());
+            if active != last {
+                last = active;
+                refresh_now("keyboard");
+            }
+        }
+    });
+}
+
 pub fn start() {
+    watch_keyboard();
     crate::utils::spawn_supervised("system-poller", || {
         let _com = crate::windows_api::ComGuard::new();
         let mut media_manager = None;
@@ -119,8 +160,10 @@ pub fn start() {
             if modules.contains("power") && tick.is_multiple_of(5) {
                 next.power = Some(power::status());
             }
-            if modules.contains("keyboard") {
-                let active = keyboard::active_layout_for(apps::last_external_foreground());
+            // the active layout is followed by `watch_keyboard`; this only picks up
+            // languages added or removed in the Windows settings
+            if modules.contains("keyboard") && tick.is_multiple_of(5) {
+                let active = keyboard::active_input(apps::last_external_foreground());
                 next.keyboard = keyboard::list(active);
             }
             if modules.contains("recycle-bin") && tick.is_multiple_of(3) {

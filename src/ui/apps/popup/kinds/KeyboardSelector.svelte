@@ -9,9 +9,16 @@
   // svelte-ignore state_referenced_locally
   let layouts = $state<KeyboardLayout[]>(data ?? []);
 
-  function select(layout: KeyboardLayout) {
-    api.setKeyboardLayout(layout.id);
-    close();
+  // the popup keeps the focus until the backend has handed it back to the application
+  // being typed in (Windows only lets the foreground process give the focus away)
+  async function select(layout: KeyboardLayout) {
+    try {
+      await api.setKeyboardLayout(layout.id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      close();
+    }
   }
 </script>
 

@@ -36,6 +36,17 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - 单击切换/最小化，多窗口弹出窗口列表，中键关闭或新建实例
   - 右键菜单：固定/取消固定、打开文件位置、以管理员身份运行、关闭、结束任务
   - 多显示器：仅主显示器或所有显示器
+- **辅助停靠栏**：除主停靠栏外最多再加 3 个，各占一条边（主显示器），放你固定的应用、文件和模块，
+  不显示运行中的程序。点击应用会切到它最近使用的窗口，没有运行则启动它
+  - 模块与主停靠栏相同（开始菜单、时钟、媒体、电源、网络等），在辅助栏上右键“模块”或在设置页开关；
+    每个停靠栏的模块互不影响
+  - 每个辅助栏单独设置大小、宽度模式、自动隐藏方式和延迟（与主停靠栏相同，“从不隐藏”同样会占用屏幕空间并给出提示），
+    以及放大效果（开关、最大放大倍数、每侧受影响的图标数、显示应用名称）和空间不足时的处理方式
+  - 固定方式：设置页“辅助停靠栏”中添加，拖放到辅助栏上，或在启动台右键“固定到辅助栏”
+  - 布局：左右两侧的栏占满整个高度，上下的栏位于它们之间；只有一个辅助栏且主停靠栏在顶部或底部时，
+    主停靠栏保持整条边，侧边的辅助栏让开它。浮动的工具栏始终保持整条边，停靠栏排在它里面。
+    把主停靠栏移到某个辅助栏所在的边，两者互换位置
+  - 每个辅助栏是一个独立窗口（约 15–30 MB 内存）；自动隐藏的辅助栏在隐藏期间会释放内存
 - **启动台（SideDock 开始菜单）**：类似 macOS Launchpad 的全屏启动台，支持拼音、首字母搜索，
   方向键 / 回车操作，右键固定到停靠栏或打开文件位置
   - 显示内容自己决定：全部应用，或“仅我添加的应用”（其余应用仍可通过搜索或“全部应用”找到并添加）；
@@ -51,6 +62,10 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 - **台前调度（窗口切换）**：默认 `` Alt+` ``，可自定义。中间是所选窗口的实时预览，左侧按应用分组列出所有窗口，
   窗口多时像停靠栏一样层叠；轻按后保持打开，单击左侧或下方的窗口会把它放到中间预览，
   单击中间的大窗口或双击才会切换过去；按住 Alt 连按则循环选择、松开即切换，滚轮切换同一应用的窗口
+  - **最小化的窗口也能预览**：显示它最小化前的最后一帧（标注“已最小化”），按还原后的比例显示。
+    Windows 不会为最小化的窗口继续绘制内容，所以画面停在最小化那一刻
+  - **正在播放**：正在播放媒体的应用（例如最小化的视频）在窗口标题旁显示曲目名和上一首 / 播放暂停 / 下一首按钮，
+    无需切换过去即可控制
 - **精美工具栏**（参考 Seelen UI 的 Fancy Toolbar）：横贯屏幕的状态栏，包含开始按钮、当前应用名称、
   媒体控制、键盘布局、蓝牙、网络与音量（快速设置）、电池、时钟与日历、通知、任务管理器、显示桌面
   - **系统托盘图标可以平铺显示**在工具栏上（Seelen UI 做不到），单击 / 双击 / 右键 / 中键与在任务栏上完全一致；
@@ -72,13 +87,17 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - **独立主题**：可以跟随停靠栏，也可以单独选择五种主题之一并单独调节不透明度
   - **CPU、内存、网速**：可放到工具栏上的三个状态项目（内存提示里显示已用 / 总量，网速分下载和上传），
     点击打开任务管理器；只在工具栏上有这些项目时才每秒读取一次
-  - **自定义按钮**：在工具栏上添加按钮，点击打开指定的程序、文件、文件夹或网址；可设置名称、启动参数和图标
-    （默认使用目标自己的图标），最多 24 个
+  - **自定义按钮**：在工具栏上添加按钮，最多 24 个，可设置名称和图标（默认使用目标自己的图标）。三种类型：
+    - **打开**：程序、文件、文件夹或网址，可带启动参数
+    - **命令**：CMD 或 PowerShell 命令，支持多行；运行方式可选“保留窗口”“运行完关闭”“隐藏运行”，
+      可勾选“以管理员身份运行”（每次会弹 UAC）和“运行前确认”
+    - **注册表**：保存一个注册表路径（如 `HKCU\Software\Microsoft`，也接受 `HKEY_CURRENT_USER\...`、
+      `计算机\...` 和 `/` 分隔），点击后注册表编辑器直接打开到该位置（见下方“数据目录”）
   - 全屏应用处于前台时自动隐藏
 - **可选隐藏 Windows 任务栏，且不改变桌面布局**：只隐藏任务栏窗口本身，它保留的屏幕区域不变，
   桌面图标和最大化窗口不会移动（16:9、16:10 及其他比例的屏幕都一样，不会像 Seelen UI 那样重排桌面）。
   退出 SideDock、或 SideDock 意外退出时，任务栏都会自动恢复
-- **模块**：开始菜单、显示桌面、回收站、时钟与日历、键盘布局选择器、媒体播放器、
+- **模块**：开始菜单、显示桌面、回收站、时钟与日历、键盘布局选择器（跟随输入法的中 / 英状态）、媒体播放器、
   电源与电池、蓝牙、网络、通知、任务管理器
 - **主页 / 设置**：玻璃（毛）、玻璃（清）、暗色、亮色、跟随系统五种主题，自定义强调色，中英文切换，开机自启，
   日志 / 用户数据 / 缓存的查看与清理卡片
@@ -98,7 +117,7 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 | 隐藏任务栏时 SideDock 被强制结束 | 守护进程根据 `data/runtime/taskbar-hidden` 标记立即恢复任务栏 |
 | 快速连续开关“隐藏任务栏” | 恢复时不依赖任务栏当前是否可见，一律请求显示，并在之后几秒内持续校验 |
 | 资源管理器重启 | 自动重新隐藏任务栏、重新接入系统托盘，托盘图标由各应用自动重新登记 |
-| 内存占用 | 弹窗、提示和启动台窗口常驻以保证秒开；闲置 30 秒后允许 WebView2 释放它们的内存，再次使用前自动取回 |
+| 内存占用 | 弹窗、提示和启动台窗口常驻以保证秒开；闲置 30 秒后允许 WebView2 释放它们的内存，再次使用前自动取回。自动隐藏的辅助停靠栏同样处理 |
 | 后台线程异常 | 监控线程出错会自动重启，不会拖垮整个程序 |
 | 注销 / 关机 | 守护进程检测到系统正在关机时不会重新拉起 |
 
@@ -108,19 +127,25 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 SideDock.exe
 sidedock_tray.dll   系统托盘接入组件（仅在开启工具栏托盘时由资源管理器加载）
 data/
-  config/    settings.json、dock_items.json、launcher_layout.json（及 .bak 备份）
+  config/    settings.json、dock_items.json、aux_dock_items.json、launcher_layout.json（及 .bak 备份）
   logs/      滚动日志（每天一个，最多保留 10 个）
   userdata/  WebView2 配置文件
   cache/     应用图标缓存
-  runtime/   会话锁、崩溃记录、任务栏隐藏标记
+  runtime/   会话锁、崩溃记录、任务栏隐藏标记、多行 CMD 命令按钮的批处理文件（commands/）
 ```
 
-程序目录之外只有两处写入，都只在你打开对应选项时才会发生，关闭选项即删除：
+程序目录之外只有三处写入，都只在你使用对应功能时才会发生：
 
-| 选项 | 写入位置 | 大小 |
+| 功能 | 写入位置 | 大小 |
 | --- | --- | --- |
-| 开机自启 | 注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SideDock` | 一个字符串值 |
-| 按 Win 键打开 SideDock 启动台 | 系统计划任务 `SideDock Win Key`（`C:\Windows\System32\Tasks\SideDock Win Key` 及对应注册表项） | 几 KB |
+| 开机自启 | 注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SideDock` | 一个字符串值，关闭选项即删除 |
+| 按 Win 键打开 SideDock 启动台 | 系统计划任务 `SideDock Win Key`（`C:\Windows\System32\Tasks\SideDock Win Key` 及对应注册表项） | 几 KB，关闭选项即删除 |
+| 工具栏的“注册表”按钮 | 注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\LastKey` | 一个字符串值 |
+
+关于最后一项：注册表编辑器没有“打开到某个路径”的启动参数，它总是打开到上次关闭时所在的位置，
+这个位置就记在 `LastKey` 里（注册表编辑器自己每次关闭时也会改写它）。SideDock 只在你点击“注册表”按钮时
+把它改成按钮保存的路径，然后启动注册表编辑器；不写入其他任何注册表项。注册表编辑器本身需要管理员权限，
+所以会弹出 UAC。如果注册表编辑器已经打开，SideDock 会把它切到前台并提示先关闭它（它只在启动时读取该位置）。
 
 ### Win 键接管
 
@@ -223,6 +248,21 @@ taskbar does not change the desktop layout.
     start a new instance
   - Context menu: pin / unpin, open file location, run as administrator, close, end task
   - Multiple monitors: primary only, or every monitor
+- **Extra docks**: up to 3 more docks besides the main one, each on an edge of its own (on the primary
+  monitor), holding the apps, files and modules you add, never running apps. Clicking an app brings its
+  most recent window to the front, or starts it
+  - The same modules as the main dock (start menu, clock, media, power, network...), from the dock's
+    right-click "Modules" menu or the settings page; each dock has its own
+  - Each has its own size, width mode, auto-hide mode and delays (the same as the main dock's; "never" also
+    reserves screen space, with the same warning), its own magnification (on / off, largest scale, icons
+    affected on each side, app names) and its own "when items do not fit" behavior
+  - Pin from the "Extra docks" settings page, by dropping onto the dock, or with "Pin to extra dock" in the
+    launcher's context menu
+  - Layout: left and right docks span the full height and top and bottom docks fit between them; with a
+    single extra dock and the main dock at the top or bottom, the main dock keeps its whole edge and a side
+    dock makes room for it. A floating toolbar always keeps its whole edge and the docks go inside it.
+    Moving the main dock onto an extra dock's edge swaps the two
+  - Each extra dock is a window of its own (about 15–30 MB of memory); an auto-hidden one gives memory back while hidden
 - **Launcher (SideDock start menu)**: a fullscreen launcher like macOS Launchpad, with search by name,
   pinyin or initials, arrow keys and Enter, right click to pin to the dock or open the file location
   - You decide what it shows: every app, or "only apps I added" (the others are still found by search or
@@ -242,6 +282,11 @@ taskbar does not change the desktop layout.
   are many. After a tap it stays open: a click on a window on the left or below only moves it to the
   center; a click on the center window, or a double click, switches to it. Hold Alt and press the key
   repeatedly to cycle, release to switch; the wheel steps through the windows of the same app
+  - **Minimized windows have a preview too**: their last frame before they were minimized (tagged
+    "minimized"), in the proportions they are restored to. Windows does not keep drawing minimized windows,
+    so the picture stops at the moment it was minimized
+  - **Now playing**: the app playing media (a minimized video, say) shows the track and previous /
+    play-pause / next buttons next to its window title, so you can control it without switching to it
 - **Fancy toolbar** (after Seelen UI's Fancy Toolbar): a status bar across the screen with the start button,
   the current app's name, media controls, keyboard layout, Bluetooth, network & volume (quick settings),
   battery, clock and calendar, notifications, Task Manager, show desktop
@@ -270,21 +315,28 @@ taskbar does not change the desktop layout.
   - **CPU, memory, network speed**: three status items for the toolbar (the memory tooltip shows used / total,
     network speed shows download and upload); a click opens Task Manager. They are read once a second, and
     only while one of them is on the toolbar
-  - **Custom buttons**: add buttons that open a program, file, folder or web address, with a name, optional
-    arguments and an icon (the target's own icon by default); up to 24
+  - **Custom buttons**: up to 24 toolbar buttons with a name and an icon (the target's own icon by default),
+    of three kinds:
+    - **Open**: a program, file, folder or web address, with optional arguments
+    - **Command**: a CMD or PowerShell command, several lines allowed; run it in a window that stays open,
+      closes when done, or hidden; optionally as administrator (a UAC prompt each time) and after a
+      confirmation
+    - **Registry**: a saved registry path (such as `HKCU\Software\Microsoft`; `HKEY_CURRENT_USER\...`,
+      `Computer\...` and `/` separators work too) that Registry Editor opens at (see "Data folder")
   - Hides while a fullscreen app is in the foreground
 - **Optional: hide the Windows taskbar without changing the desktop layout**: only the taskbar window is
   hidden, the screen area it reserves stays, so desktop icons and maximized windows do not move (on 16:9,
   16:10 or any other screen; the desktop is not rearranged as it is with Seelen UI). The taskbar comes back
   when SideDock exits, even unexpectedly
-- **Modules**: start menu, show desktop, recycle bin, clock and calendar, keyboard layout selector, media
-  player, power and battery, Bluetooth, network, notifications, Task Manager
+- **Modules**: start menu, show desktop, recycle bin, clock and calendar, keyboard layout selector (follows
+  the IME's Chinese / English mode), media player, power and battery, Bluetooth, network, notifications,
+  Task Manager
 - **Home / settings**: five themes (frosted glass, clear glass, dark, light, follow the system), custom
   accent color, Chinese and English, start with Windows, cards to view and clear logs / user data / cache
 - **Shortcuts**: customizable global shortcuts (show / hide the dock, open the settings, open the launcher,
   window switcher), with conflict detection against Windows and other programs while recording
 - **Portable**: nothing is written to `C:\Users\...\AppData`; all data lives in the `data` folder next to
-  the program (the only exceptions are listed under "Data folder", and both are optional)
+  the program (the only exceptions are listed under "Data folder", and all of them are optional)
 
 ## Built to be robust
 
@@ -297,7 +349,7 @@ taskbar does not change the desktop layout.
 | SideDock killed while the taskbar is hidden | The guardian restores the taskbar at once, from the `data/runtime/taskbar-hidden` marker |
 | "Hide the taskbar" switched on and off quickly | Restoring never relies on the taskbar's current visibility: it always asks for it to be shown, and checks again for a few seconds |
 | Explorer restarts | The taskbar is hidden again and the system tray is reconnected; applications register their tray icons again by themselves |
-| Memory | The popup, tooltip and launcher windows stay alive to open instantly; after 30 seconds idle WebView2 may release their memory, and they get it back before they are used again |
+| Memory | The popup, tooltip and launcher windows stay alive to open instantly; after 30 seconds idle WebView2 may release their memory, and they get it back before they are used again. Auto-hidden extra docks do the same |
 | A background thread fails | Watcher threads restart on errors and cannot take the whole program down |
 | Sign out / shut down | The guardian does not restart SideDock while Windows is shutting down |
 
@@ -307,20 +359,27 @@ taskbar does not change the desktop layout.
 SideDock.exe
 sidedock_tray.dll   system tray component (loaded by Explorer only while the toolbar shows the tray)
 data/
-  config/    settings.json, dock_items.json, launcher_layout.json (and .bak copies)
+  config/    settings.json, dock_items.json, aux_dock_items.json, launcher_layout.json (and .bak copies)
   logs/      rolling logs (one per day, 10 kept at most)
   userdata/  WebView2 profile
   cache/     application icon cache
-  runtime/   session lock, crash record, taskbar-hidden marker
+  runtime/   session lock, crash record, taskbar-hidden marker, batch files of multi-line CMD buttons (commands/)
 ```
 
-Only two things are written outside the program folder, each only when you turn its option on, and removed
-when you turn it off:
+Only three things are written outside the program folder, each only when you use the matching feature:
 
-| Option | Written to | Size |
+| Feature | Written to | Size |
 | --- | --- | --- |
-| Start with Windows | Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SideDock` | one string value |
-| Win key opens the SideDock launcher | Scheduled task `SideDock Win Key` (`C:\Windows\System32\Tasks\SideDock Win Key` and its registry entries) | a few KB |
+| Start with Windows | Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\SideDock` | one string value, removed when you turn the option off |
+| Win key opens the SideDock launcher | Scheduled task `SideDock Win Key` (`C:\Windows\System32\Tasks\SideDock Win Key` and its registry entries) | a few KB, removed when you turn the option off |
+| The toolbar's "Registry" buttons | Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\LastKey` | one string value |
+
+About the last one: Registry Editor has no command line option to open at a path; it always opens where it
+was when it was last closed, and that place is kept in `LastKey` (Registry Editor rewrites it itself every
+time it closes). Only when you click a "Registry" button does SideDock set it to the button's path and start
+Registry Editor; no other registry value is written. Registry Editor needs administrator rights, hence its
+UAC prompt. If Registry Editor is already open, SideDock brings it to the front and asks you to close it
+first (it reads that place only when it starts).
 
 ### Win key takeover
 

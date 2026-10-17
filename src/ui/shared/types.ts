@@ -100,15 +100,29 @@ export type ToolbarItemId =
   /** a custom button: `custom:<button id>` */
   | `custom:${string}`;
 
+export type ButtonKind = "open" | "command" | "registry";
+export type CommandShell = "cmd" | "powershell";
+/** keep: window stays open, close: closes when done, hidden: no window */
+export type RunMode = "keep" | "close" | "hidden";
+
 /** A button the user adds to the toolbar. */
 export interface CustomButton {
   id: string;
   name: string;
-  /** program, file, folder or URL */
+  kind: ButtonKind;
+  /** program, file, folder or URL (open); key path (registry) */
   target: string;
   /** command line arguments, programs only */
   args: string;
-  /** icon name of the icon set, "" = the target's own icon */
+  /** one or several lines (command) */
+  command: string;
+  shell: CommandShell;
+  runMode: RunMode;
+  /** run the command as administrator */
+  elevated: boolean;
+  /** ask before running */
+  confirm: boolean;
+  /** icon name of the icon set, "" = the target's own icon / the kind's icon */
   icon: string;
 }
 
@@ -163,6 +177,8 @@ export interface AppSettings {
   launcher: LauncherSettings;
   toolbar: ToolbarSettings;
   taskbar: TaskbarSettings;
+  /** the three auxiliary docks, enabled or not */
+  auxDocks: AuxDockSettings[];
   /** action id -> accelerator ("Ctrl+Alt+Backquote"), "" = disabled */
   shortcuts: Record<string, string>;
 }
@@ -234,6 +250,8 @@ export interface UserAppWindow {
   path: string | null;
   monitor: number;
   rect: Rect | null;
+  /** size it is restored to, while minimized */
+  restoredRect: Rect | null;
   isIconic: boolean;
   isZoomed: boolean;
   isFullscreen: boolean;
@@ -260,6 +278,27 @@ export interface DockInfo {
   monitor: MonitorInfo;
   rect: Rect;
   hidden: boolean;
+  /** id of the auxiliary dock, null for the main dock */
+  aux: string | null;
+  /** the settings this dock runs with (an auxiliary dock's are derived from the main one's) */
+  settings: DockSettings;
+}
+
+/** An auxiliary dock: pinned items only, on an edge of its own, on the primary monitor. */
+export interface AuxDockSettings {
+  id: string;
+  enabled: boolean;
+  position: DockSide;
+  mode: DockMode;
+  size: number;
+  hideMode: HideMode;
+  delayToShow: number;
+  delayToHide: number;
+  magnification: boolean;
+  magnificationScale: number;
+  magnificationRange: number;
+  showLabels: boolean;
+  overflowMode: OverflowMode;
 }
 
 export interface KeyboardLayout {

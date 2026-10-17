@@ -263,11 +263,19 @@
     setTimeout(() => (notice = ""), 1800);
   }
 
-  async function pin(app: StartApp) {
+  // the auxiliary docks that are on: "pin to" entries of the app menu
+  const auxDocks = $derived(
+    settingsState.value.auxDocks.map((d, i) => ({ ...d, n: i + 1 })).filter((d) => d.enabled),
+  );
+
+  async function pin(app: StartApp, store: string | null = null, n = 0) {
     menu = null;
     try {
-      const added = await api.pinStartApp(app.id);
-      flash(added ? t("launcher.pinned", { name: app.name }) : t("launcher.alreadyPinned"));
+      const added = await api.pinStartApp(app.id, store);
+      const done = store
+        ? t("launcher.pinnedAux", { name: app.name, n })
+        : t("launcher.pinned", { name: app.name });
+      flash(added ? done : t("launcher.alreadyPinned"));
     } catch (err) {
       flash(String(err));
     }
@@ -705,6 +713,12 @@
           <Icon name="Pin" size={15} />
           {t("launcher.pin")}
         </button>
+        {#each auxDocks as aux (aux.id)}
+          <button type="button" role="menuitem" onclick={() => pin(app, aux.id, aux.n)}>
+            <Icon name="PanelRight" size={15} />
+            {t("launcher.pinAux", { n: aux.n })}
+          </button>
+        {/each}
         {#if app.path}
           <button type="button" role="menuitem" onclick={() => reveal(app)}>
             <Icon name="FolderOpen" size={15} />
