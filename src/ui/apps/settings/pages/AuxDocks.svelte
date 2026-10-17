@@ -11,8 +11,8 @@
   import { t, type TranslationKey } from "@shared/i18n/index.svelte.ts";
   import { api, Events, iconUrl, on } from "@shared/ipc.ts";
   import { MODULES } from "@shared/modules.ts";
+  import { pinnedEntries, withoutApp, type PinnedEntry } from "@shared/pinnedItems.ts";
   import type {
-    AppDockItem,
     AuxDockSettings,
     DockItem,
     DockItems,
@@ -56,12 +56,9 @@
   // ---------- pinned items, one store per dock ----------
   let items = $state<Record<string, DockItems>>({});
 
-  function pinnedOf(id: string): AppDockItem[] {
-    const list = items[id];
-    if (!list) return [];
-    return [...list.left, ...list.center, ...list.right].filter(
-      (i): i is AppDockItem => i.type === "App" && i.pinned,
-    );
+  /** pinned apps, those in folder stacks included */
+  function pinnedOf(id: string): PinnedEntry[] {
+    return pinnedEntries(items[id]);
   }
 
   onMount(() => {
@@ -111,8 +108,7 @@
   async function removeItem(id: string, itemId: string) {
     const list = items[id];
     if (!list) return;
-    const keep = (l: DockItem[]) => l.filter((i) => i.id !== itemId);
-    const next = { ...list, left: keep(list.left), center: keep(list.center), right: keep(list.right) };
+    const next = withoutApp(list, itemId);
     items[id] = next;
     items[id] = await api.saveDockItems(next, SOURCE, id);
   }
@@ -257,11 +253,14 @@
             {t("dock.addFile")}
           </button>
         </div>
-        {#each pinnedOf(dock.id) as app (app.id)}
+        {#each pinnedOf(dock.id) as { app, stack } (app.id)}
           <div class="pinned-row">
             <img src={iconUrl(app.relaunch?.command || app.path, app.umid)} alt="" />
             <div class="pinned-text">
-              <span class="pinned-name">{app.displayName}</span>
+              <span class="pinned-name">
+                {app.displayName}
+                {#if stack}<span class="stacked">{t("stack.inStack", { name: stack })}</span>{/if}
+              </span>
               <span class="pinned-path">{app.path || app.umid}</span>
             </div>
             <button
@@ -355,6 +354,13 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+
+  .stacked {
+    margin-left: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--fg-muted);
   }
 
   .pinned-name {

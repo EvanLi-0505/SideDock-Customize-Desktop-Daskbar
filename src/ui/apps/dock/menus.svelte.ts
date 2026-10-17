@@ -6,9 +6,9 @@ import { api, iconUrl } from "@shared/ipc.ts";
 import { t } from "@shared/i18n/index.svelte.ts";
 import type { MenuEntry } from "@shared/menu.ts";
 import { MODULES } from "@shared/modules.ts";
-import type { AppDockItem, DockItem, ModuleId, UserAppWindow } from "@shared/types.ts";
+import type { AppDockItem, DockItem, ModuleId, StackDockItem, UserAppWindow } from "@shared/types.ts";
 import { openMenu, openPopup } from "./overlays.ts";
-import { dockActions, dockState, isHardcodedSeparator } from "./state/items.svelte.ts";
+import { dockActions, dockState, isHardcodedSeparator, stackActions } from "./state/items.svelte.ts";
 import { layout } from "./state/layout.svelte.ts";
 
 // ---------------- launching ----------------
@@ -81,6 +81,21 @@ export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWi
     );
   }
 
+  // folder stacks hold pinned apps
+  if (item.pinned) {
+    const stacks = stackActions.list();
+    entries.push({ type: "separator" }, { type: "item", id: "new-stack", label: t("stack_menu.new"), icon: "FolderPlus" });
+    if (stacks.length) {
+      entries.push({
+        type: "submenu",
+        id: "move-to-stack",
+        label: t("stack_menu.moveTo"),
+        icon: "Folder",
+        items: stacks.map((s) => ({ type: "item" as const, id: `stack:${s.id}`, label: s.name })),
+      });
+    }
+  }
+
   if (windows.length && !layout.aux) {
     entries.push(
       { type: "separator" },
@@ -104,7 +119,14 @@ export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWi
   }
 
   openMenu(e, entries, (action) => {
+    if (action.startsWith("stack:")) {
+      stackActions.moveInto(item.id, action.slice(6));
+      return;
+    }
     switch (action) {
+      case "new-stack":
+        stackActions.create(item.id, t("stack.defaultName"));
+        break;
       case "pin":
         dockActions.pin(item.id);
         break;
@@ -131,6 +153,20 @@ export function showAppMenu(e: MouseEvent, item: AppDockItem, windows: UserAppWi
         windows.forEach((w) => api.windowKill(w.hwnd));
         break;
     }
+  });
+}
+
+// ---------------- folder stack ----------------
+
+export function showStackMenu(e: MouseEvent, stack: StackDockItem): void {
+  const entries: MenuEntry[] = [
+    { type: "item", id: "ungroup", label: t("stack_menu.ungroup"), icon: "LayoutGrid" },
+    { type: "separator" },
+    { type: "item", id: "remove", label: t("stack_menu.remove"), icon: "Trash2", danger: true },
+  ];
+  openMenu(e, entries, (action) => {
+    if (action === "ungroup") stackActions.ungroup(stack.id);
+    else if (action === "remove") dockActions.remove(stack.id);
   });
 }
 

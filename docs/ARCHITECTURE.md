@@ -15,11 +15,12 @@ src/
     paths.rs, logger.rs  portable data folder, rolling file logs
     tray.rs              tray icon on the native taskbar
     state/               persisted state (settings, dock items, launcher layout) with
-                         atomic writes
+                         atomic writes; configuration backups (`backup.rs`)
     modules/             OS watchers: app windows, system poller, autostart, icon cache,
                          system tray (receiver of the Explorer hook), taskbar visibility,
                          shell flyouts (quick settings / notification center toggles),
-                         custom toolbar buttons (open / command / registry)
+                         custom toolbar buttons (open / command / registry), windows asking
+                         for attention (shell hook), file search of the launcher (in memory)
     widgets/             webview windows: dock (+ geometry, auto-hide, backdrop), popup,
                          tooltip, overlay (launcher / window switcher), toolbar, settings;
                          memory (releases the memory of idle helper windows and of
@@ -104,6 +105,21 @@ scripts/package.mjs      portable zip packaging
 * Popups (context menus, window list, calendar, keyboard, bluetooth, power) share one
   reusable window. The requesting widget sends JSON describing the popup; actions are sent
   back to it with `popup-action`.
+
+* Attention (`modules/attention.rs`): a hidden top-level window registered with
+  `RegisterShellHookWindow` receives `HSHELL_FLASH` when a window calls `FlashWindowEx`;
+  `apps::set_attention` marks the window (`UserAppWindow.attention`) until it reaches the
+  foreground, and the docks style the item.
+* Folder stacks are a dock item (`DockItem::Stack { name, items }`, pinned apps only,
+  sanitized like the rest). The page opens them as the `stack` popup kind; stack members
+  count as pinned when running apps are matched, so they get no temporal item.
+* Launcher search: apps are matched in the page; arithmetic, addresses and the web search
+  are computed in the page (`shared/launcherSearch.ts`, a small parser, no `eval`); files
+  come from `modules/file_search.rs`, an in-memory index of the user's folders built in
+  the background (bounded depth, entries and time; tool folders skipped).
+* Backups (`state/backup.rs`) bundle the config files into one JSON file in `backups`
+  next to the exe or a folder the user picked. Restoring backs the current files up,
+  writes the backup's (keeping this computer's backup folder and autostart) and restarts.
 
 ## Adding features
 

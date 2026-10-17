@@ -36,6 +36,11 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - 单击切换/最小化，多窗口弹出窗口列表，中键关闭或新建实例
   - 右键菜单：固定/取消固定、打开文件位置、以管理员身份运行、关闭、结束任务
   - 多显示器：仅主显示器或所有显示器
+  - **窗口闪烁提醒**：应用请求注意时（新消息、下载完成等，原生任务栏按钮变橙色的情况），停靠栏上的图标会脉动几次，
+    然后保持橙色，直到你切到那个窗口；辅助栏和文件夹堆栈上同样显示
+  - **文件夹堆栈**：把几个固定的应用收进一个图标（右键应用 >“新建文件夹堆栈”或“移到堆栈”），图标显示其中四个应用，
+    点击弹出网格；网格顶部可直接改名，每个应用可以“移出堆栈”，右键堆栈可解散。其中的应用在运行时，堆栈上同样有运行、
+    焦点和闪烁提示，不会再出现重复的图标；设置页的“固定的应用”列表中会标出“已堆栈”
 - **辅助停靠栏**：除主停靠栏外最多再加 3 个，各占一条边（主显示器），放你固定的应用、文件和模块，
   不显示运行中的程序。点击应用会切到它最近使用的窗口，没有运行则启动它
   - 模块与主停靠栏相同（开始菜单、时钟、媒体、电源、网络等），在辅助栏上右键“模块”或在设置页开关；
@@ -49,6 +54,10 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - 每个辅助栏是一个独立窗口（约 15–30 MB 内存）；自动隐藏的辅助栏在隐藏期间会释放内存
 - **启动台（SideDock 开始菜单）**：类似 macOS Launchpad 的全屏启动台，支持拼音、首字母搜索，
   方向键 / 回车操作，右键固定到停靠栏或打开文件位置
+  - **搜索不止应用**：同时按名称查找桌面、文档、下载、图片、音乐、视频和“最近使用”里的文件（可直接打开或打开所在位置）；
+    输入 `12*(3+4)` 这样的算式直接得出结果，Enter 复制；输入 `github.com` 这样的网址直接打开；
+    还可以一键用 Bing、Google、百度或 DuckDuckGo 搜索（可在设置中更换或关闭）。
+    文件列表只保存在内存中，不写入磁盘，并跳过 `node_modules`、`.git` 等开发目录
   - 显示内容自己决定：全部应用，或“仅我添加的应用”（其余应用仍可通过搜索或“全部应用”找到并添加）；
     任何应用都可以右键“从启动台移除”
   - **合集**（类似 Windows 开始菜单的文件夹）：右键“新建合集”并命名，或把一个应用拖到另一个应用上；
@@ -101,6 +110,10 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   电源与电池、蓝牙、网络、通知、任务管理器
 - **主页 / 设置**：玻璃（毛）、玻璃（清）、暗色、亮色、跟随系统五种主题，自定义强调色，中英文切换，开机自启，
   日志 / 用户数据 / 缓存的查看与清理卡片
+- **备份与恢复**：在“数据与日志”页把设置、停靠栏与辅助栏项目、启动台布局备份为一个 JSON 文件，并显示备份位置。
+  默认保存在 SideDock.exe 旁边的 `backups` 文件夹（第一次备份时才创建），也可以改到你选择的文件夹；
+  可从列表或任意备份文件恢复，恢复前会自动备份当前设置，然后重启 SideDock 生效。
+  手动删除或移动的备份会自动标为“已失效”，可以移除这条记录
 - **快捷键**：全局快捷键可自定义（显示/隐藏停靠栏、打开设置、打开启动台、台前调度），
   录入时自动检测与 Windows 或其他程序的冲突
 - **便携**：不写入 `C:\Users\...\AppData`，所有数据都在程序旁边的 `data` 文件夹
@@ -128,6 +141,7 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
 ```
 SideDock.exe
 sidedock_tray.dll   系统托盘接入组件（仅在开启工具栏托盘时由资源管理器加载）
+backups/            配置备份（默认位置，第一次备份时才创建）
 data/
   config/    settings.json、dock_items.json、aux_dock_items.json、launcher_layout.json（及 .bak 备份）
   logs/      滚动日志（每天一个，最多保留 10 个）
@@ -148,6 +162,8 @@ data/
 这个位置就记在 `LastKey` 里（注册表编辑器自己每次关闭时也会改写它）。SideDock 只在你点击“注册表”按钮时
 把它改成按钮保存的路径，然后启动注册表编辑器；不写入其他任何注册表项。注册表编辑器本身需要管理员权限，
 所以会弹出 UAC。如果注册表编辑器已经打开，SideDock 会把它切到前台并提示先关闭它（它只在启动时读取该位置）。
+
+配置备份默认写在程序文件夹内的 `backups`；只有你在“数据与日志”页亲自选择了其他文件夹，备份才会写到那里。
 
 ### Win 键接管
 
@@ -250,6 +266,13 @@ taskbar does not change the desktop layout.
     start a new instance
   - Context menu: pin / unpin, open file location, run as administrator, close, end task
   - Multiple monitors: primary only, or every monitor
+  - **Attention**: when an app asks for attention (a new message, a finished download: the taskbar button
+    turns orange), its dock icon pulses a few times, then stays orange until you switch to that window; extra
+    docks and folder stacks show it too
+  - **Folder stacks**: several pinned apps behind one icon (right-click an app > "New folder stack" or "Move
+    to stack"). The icon shows four of them and opens a grid; rename it at the top of the grid, move apps back
+    out, or right-click the stack to ungroup it. Running, focused and attention marks show on the stack, and
+    its running apps get no duplicate icon; the settings' pinned apps list marks them "In stack"
 - **Extra docks**: up to 3 more docks besides the main one, each on an edge of its own (on the primary
   monitor), holding the apps, files and modules you add, never running apps. Clicking an app brings its
   most recent window to the front, or starts it
@@ -267,6 +290,11 @@ taskbar does not change the desktop layout.
   - Each extra dock is a window of its own (about 15–30 MB of memory); an auto-hidden one gives memory back while hidden
 - **Launcher (SideDock start menu)**: a fullscreen launcher like macOS Launchpad, with search by name,
   pinyin or initials, arrow keys and Enter, right click to pin to the dock or open the file location
+  - **Search beyond apps**: files of Desktop, Documents, Downloads, Pictures, Music, Videos and the recent
+    items by name (open them or their folder); arithmetic such as `12*(3+4)` is calculated (Enter copies the
+    result); addresses such as `github.com` open directly; a web search with Bing, Google, Baidu or DuckDuckGo
+    (changeable or off in the settings). The file list lives in memory only, nothing is written to disk, and
+    tool folders such as `node_modules` and `.git` are skipped
   - You decide what it shows: every app, or "only apps I added" (the others are still found by search or
     under "All apps", and can be added); any app can be removed with a right click
   - **Collections** (like the folders of the Windows start menu): right-click > "New collection" and name
@@ -335,6 +363,11 @@ taskbar does not change the desktop layout.
   Task Manager
 - **Home / settings**: five themes (frosted glass, clear glass, dark, light, follow the system), custom
   accent color, Chinese and English, start with Windows, cards to view and clear logs / user data / cache
+- **Backup & restore**: on the "Data & logs" page, back up the settings, dock and extra dock items and the
+  launcher layout as one JSON file; the page shows where backups go. By default that is a `backups` folder
+  next to SideDock.exe (created by the first backup), or a folder you choose. Restore from the list or from
+  any backup file: the current settings are backed up first, then SideDock restarts. Backups deleted or moved
+  by hand are marked as no longer valid, and their entries can be removed
 - **Shortcuts**: customizable global shortcuts (show / hide the dock, open the settings, open the launcher,
   window switcher), with conflict detection against Windows and other programs while recording
 - **Portable**: nothing is written to `C:\Users\...\AppData`; all data lives in the `data` folder next to
@@ -362,6 +395,7 @@ taskbar does not change the desktop layout.
 ```
 SideDock.exe
 sidedock_tray.dll   system tray component (loaded by Explorer only while the toolbar shows the tray)
+backups/            configuration backups (default place, created by the first backup)
 data/
   config/    settings.json, dock_items.json, aux_dock_items.json, launcher_layout.json (and .bak copies)
   logs/      rolling logs (one per day, 10 kept at most)
@@ -384,6 +418,9 @@ time it closes). Only when you click a "Registry" button does SideDock set it to
 Registry Editor; no other registry value is written. Registry Editor needs administrator rights, hence its
 UAC prompt. If Registry Editor is already open, SideDock brings it to the front and asks you to close it
 first (it reads that place only when it starts).
+
+Configuration backups go to `backups` inside the program folder by default; they only go elsewhere when you
+pick another folder yourself on the "Data & logs" page.
 
 ### Win key takeover
 

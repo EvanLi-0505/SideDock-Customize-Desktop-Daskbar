@@ -76,6 +76,23 @@ export interface LauncherSettings {
   content: LauncherContent;
   /** shortcuts of the launcher's bottom bar, in order */
   places: LauncherPlaceId[];
+  /** the search also lists files of the user's folders */
+  searchFiles: boolean;
+  /** web search offered for what is typed */
+  searchEngine: SearchEngine;
+}
+
+export type SearchEngine = "Bing" | "Google" | "Baidu" | "DuckDuckGo" | "None";
+
+/** A file or folder found by the launcher search. */
+export interface FileHit {
+  name: string;
+  path: string;
+  /** the folder it is in */
+  folder: string;
+  isDir: boolean;
+  /** a recent item (a shortcut): no folder of its own to reveal */
+  recent: boolean;
 }
 
 export type ToolbarPosition = "Top" | "Bottom";
@@ -179,6 +196,8 @@ export interface AppSettings {
   taskbar: TaskbarSettings;
   /** the three auxiliary docks, enabled or not */
   auxDocks: AuxDockSettings[];
+  /** folder for configuration backups; empty = `backups` next to SideDock.exe */
+  backupDir: string;
   /** action id -> accelerator ("Ctrl+Alt+Backquote"), "" = disabled */
   shortcuts: Record<string, string>;
 }
@@ -213,7 +232,15 @@ export interface ModuleDockItem {
   module: ModuleId;
 }
 
-export type DockItem = AppDockItem | SeparatorDockItem | ModuleDockItem;
+/** A folder stack: several pinned apps behind one icon, opened as a grid. */
+export interface StackDockItem {
+  type: "Stack";
+  id: string;
+  name: string;
+  items: AppDockItem[];
+}
+
+export type DockItem = AppDockItem | SeparatorDockItem | ModuleDockItem | StackDockItem;
 
 export interface DockItems {
   isReorderDisabled: boolean;
@@ -256,6 +283,8 @@ export interface UserAppWindow {
   isZoomed: boolean;
   isFullscreen: boolean;
   lastForegroundAt: number;
+  /** asks for attention (flashing taskbar button) until brought to the front */
+  attention: boolean;
 }
 
 export interface FocusedApp {
@@ -392,6 +421,30 @@ export interface StorageUsage {
 }
 
 export type DataKind = "logs" | "userdata" | "cache" | "config" | "root";
+
+/** A configuration backup file (`SideDock-backup-<time>.json`). */
+export interface BackupEntry {
+  path: string;
+  name: string;
+  /** local time it was made */
+  created: string;
+  appVersion: string;
+  size: number;
+  /** made automatically right before a restore */
+  automatic: boolean;
+}
+
+export interface BackupInfo {
+  /** where backups go */
+  dir: string;
+  /** `backups` next to SideDock.exe */
+  defaultDir: string;
+  custom: boolean;
+  /** the folder exists (created by the first backup, may be deleted by hand) */
+  dirExists: boolean;
+  /** newest first */
+  entries: BackupEntry[];
+}
 
 export interface ClearResult {
   skipped: number;

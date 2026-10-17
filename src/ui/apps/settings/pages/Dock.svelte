@@ -282,11 +282,14 @@
         </div>
       </div>
     {/snippet}
-    {#each dockItemsState.pinnedApps as app (app.id)}
+    {#each dockItemsState.pinnedEntries as { app, stack } (app.id)}
       <div class="pinned-row">
         <img src={iconUrl(app.relaunch?.command || app.path, app.umid)} alt="" />
         <div class="pinned-text">
-          <span class="pinned-name">{app.displayName}</span>
+          <span class="pinned-name">
+            {app.displayName}
+            {#if stack}<span class="stacked">{t("stack.inStack", { name: stack })}</span>{/if}
+          </span>
           <span class="pinned-path">{app.path || app.umid}</span>
         </div>
         <button
@@ -345,6 +348,13 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+
+  .stacked {
+    margin-left: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--fg-muted);
   }
 
   .pinned-name {

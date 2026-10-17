@@ -6,6 +6,9 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type {
   AnchorRect,
   AppInfo,
+  BackupEntry,
+  BackupInfo,
+  FileHit,
   AppSettings,
   ClearResult,
   DataKind,
@@ -209,6 +212,20 @@ export const api = {
   openDataDir: (kind: DataKind) => invoke("open_data_dir", { kind }),
   clearData: (kind: DataKind) => invoke<ClearResult>("clear_data", { kind }),
   restartApp: () => fire(invoke("restart_app")),
+  backupInfo: () => invoke<BackupInfo>("backup_info"),
+  // launcher search
+  launcherSearchFiles: (query: string) => invoke<FileHit[]>("launcher_search_files", { query }),
+  /** opens a file search result (`reveal`: in its folder) and closes the launcher */
+  launcherOpenFile: (path: string, reveal = false) => invoke<void>("launcher_open_file", { path, reveal }),
+  /** http(s) only; closes the launcher */
+  launcherOpenUrl: (url: string) => invoke<void>("launcher_open_url", { url }),
+  backupCreate: () => invoke<BackupEntry>("backup_create"),
+  /** replaces the configuration and restarts SideDock */
+  backupRestore: (path: string) => invoke<void>("backup_restore", { path }),
+  backupDelete: (path: string) => invoke<void>("backup_delete", { path }),
+  /** `null` = `backups` next to SideDock.exe */
+  backupSetDir: (dir: string | null) => invoke<BackupInfo>("backup_set_dir", { dir }),
+  backupOpenDir: () => invoke<void>("backup_open_dir"),
   quitApp: () => fire(invoke("quit_app")),
 };
 

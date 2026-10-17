@@ -1,5 +1,6 @@
 import { api, Events, on } from "@shared/ipc.ts";
-import type { AppDockItem, DockItem, DockItems, ModuleId } from "@shared/types.ts";
+import { pinnedEntries, withoutApp, type PinnedEntry } from "@shared/pinnedItems.ts";
+import type { DockItem, DockItems, ModuleId } from "@shared/types.ts";
 
 const SOURCE = "settings";
 
@@ -9,11 +10,9 @@ export const dockItemsState = {
   get value() {
     return items;
   },
-  get pinnedApps(): AppDockItem[] {
-    if (!items) return [];
-    return [...items.left, ...items.center, ...items.right].filter(
-      (i): i is AppDockItem => i.type === "App" && i.pinned,
-    );
+  /** pinned apps, those in folder stacks included */
+  get pinnedEntries(): PinnedEntry[] {
+    return pinnedEntries(items);
   },
   hasModule(module: ModuleId): boolean {
     if (!items) return false;
@@ -40,15 +39,10 @@ export const dockItemsActions = {
     });
     items = await api.getDockItems();
   },
+  /** removes an app from the dock, or from the folder stack holding it */
   async removeItem(id: string) {
     if (!items) return;
-    const match = (i: DockItem) => i.id === id;
-    await save({
-      ...items,
-      left: without(items.left, match),
-      center: without(items.center, match),
-      right: without(items.right, match),
-    });
+    await save(withoutApp(items, id));
   },
   async toggleModule(module: ModuleId, enabled: boolean) {
     if (!items) return;

@@ -3,6 +3,7 @@
   import AppItem from "./items/AppItem.svelte";
   import Separator from "./items/Separator.svelte";
   import ModuleItem from "./items/ModuleItem.svelte";
+  import StackItem from "./items/StackItem.svelte";
 
   let { item }: { item: DockItem } = $props();
 </script>
@@ -13,4 +14,6 @@
   <Separator {item} />
 {:else if item.type === "Module"}
   <ModuleItem {item} />
+{:else if item.type === "Stack"}
+  <StackItem {item} />
 {/if}

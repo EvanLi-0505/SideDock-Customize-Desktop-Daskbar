@@ -1,8 +1,10 @@
 //! System modules: long lived managers that watch the OS and publish state.
 
 pub mod apps;
+pub mod attention;
 pub mod autostart;
 pub mod custom_buttons;
+pub mod file_search;
 pub mod hotkeys;
 pub mod icons;
 pub mod shell_flyouts;

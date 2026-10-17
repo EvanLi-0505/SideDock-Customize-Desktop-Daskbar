@@ -7,7 +7,7 @@ use crate::{
     commands,
     error::{Result, ResultLogExt},
     modules::{
-        apps, autostart, hotkeys, icons, start_apps, system, system_tray, taskbar_visibility,
+        apps, attention, autostart, hotkeys, icons, start_apps, system, system_tray, taskbar_visibility,
         win_key,
     },
     paths, session,
@@ -222,6 +222,7 @@ pub fn run() {
             }
 
             apps::start();
+            attention::start();
             system::start();
             hotkeys::start(handle.clone());
             tray::create(&handle)?;

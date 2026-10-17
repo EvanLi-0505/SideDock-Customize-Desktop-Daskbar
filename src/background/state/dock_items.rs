@@ -55,13 +55,24 @@ pub enum DockItem {
     App(AppItem),
     Separator { id: String },
     Module { id: String, module: String },
+    /// A folder stack: several pinned apps behind one icon, opened as a grid.
+    Stack {
+        id: String,
+        name: String,
+        items: Vec<AppItem>,
+    },
 }
+
+/// longest stack name kept
+const STACK_NAME_MAX: usize = 40;
 
 impl DockItem {
     pub fn id(&self) -> &str {
         match self {
             DockItem::App(app) => &app.id,
-            DockItem::Separator { id } | DockItem::Module { id, .. } => id,
+            DockItem::Separator { id } | DockItem::Module { id, .. } | DockItem::Stack { id, .. } => {
+                id
+            }
         }
     }
 
@@ -114,8 +125,18 @@ impl Default for DockItems {
 
 impl DockItems {
     /// Removes duplicated ids, unknown modules and non pinned apps (running apps are
-    /// derived from open windows at runtime and must never be persisted).
+    /// derived from open windows at runtime and must never be persisted), and empty
+    /// stacks.
     pub fn sanitize(&mut self) {
+        for list in [&mut self.left, &mut self.center, &mut self.right] {
+            for item in list.iter_mut() {
+                if let DockItem::Stack { name, items, .. } = item {
+                    let mut ids = HashSet::new();
+                    items.retain(|a| a.pinned && ids.insert(a.id.clone()));
+                    *name = name.trim().chars().take(STACK_NAME_MAX).collect();
+                }
+            }
+        }
         let mut seen = HashSet::new();
         let mut modules = HashSet::new();
         let mut keep = |item: &DockItem| {
@@ -128,6 +149,7 @@ impl DockItems {
                     MODULES.contains(&module.as_str()) && modules.insert(module.clone())
                 }
                 DockItem::Separator { .. } => true,
+                DockItem::Stack { items, .. } => !items.is_empty(),
             }
         };
         self.left.retain(&mut keep);
@@ -218,4 +240,62 @@ pub fn replace_for(store: Option<&str>, mut items: DockItems) -> Result<DockItem
 
 pub fn reset() -> Result<DockItems> {
     replace(DockItems::default())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app(id: &str, pinned: bool) -> AppItem {
+        AppItem {
+            id: id.into(),
+            display_name: id.into(),
+            path: PathBuf::from(format!("C:\\{id}.exe")),
+            umid: None,
+            pinned,
+            prevent_pinning: false,
+            relaunch: None,
+        }
+    }
+
+    #[test]
+    fn stacks_are_sanitized() {
+        let mut items = DockItems {
+            is_reorder_disabled: false,
+            left: vec![],
+            center: vec![
+                DockItem::Stack {
+                    id: "s1".into(),
+                    name: format!("  {}  ", "n".repeat(60)),
+                    items: vec![app("a", true), app("a", true), app("b", false), app("c", true)],
+                },
+                DockItem::Stack {
+                    id: "empty".into(),
+                    name: "x".into(),
+                    items: vec![app("d", false)],
+                },
+            ],
+            right: vec![],
+        };
+        items.sanitize();
+        assert_eq!(items.center.len(), 1, "a stack without pinned apps goes away");
+        let DockItem::Stack { name, items: apps, .. } = &items.center[0] else {
+            panic!("stack expected");
+        };
+        assert_eq!(name.chars().count(), STACK_NAME_MAX);
+        let ids: Vec<&str> = apps.iter().map(|a| a.id.as_str()).collect();
+        assert_eq!(ids, ["a", "c"], "duplicates and unpinned apps are dropped");
+    }
+
+    #[test]
+    fn stack_json_matches_the_page() {
+        let json = r#"{"type":"Stack","id":"s","name":"Games","items":[
+            {"type":"App","id":"a","displayName":"A","path":"C:\\a.exe","umid":null,"pinned":true,
+             "preventPinning":false,"relaunch":null}]}"#;
+        let item: DockItem = serde_json::from_str(json).expect("stack parses");
+        assert!(matches!(&item, DockItem::Stack { items, .. } if items.len() == 1));
+        let back = serde_json::to_value(&item).unwrap();
+        assert_eq!(back["type"], "Stack");
+        assert_eq!(back["items"][0]["displayName"], "A");
+    }
 }

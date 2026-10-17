@@ -2,6 +2,7 @@
 <script lang="ts">
   import Icon from "@shared/components/Icon.svelte";
   import Segmented from "@shared/components/Segmented.svelte";
+  import Select from "@shared/components/Select.svelte";
   import Slider from "@shared/components/Slider.svelte";
   import Switch from "@shared/components/Switch.svelte";
   import { onMount } from "svelte";
@@ -9,7 +10,7 @@
   import { api, Events, on } from "@shared/ipc.ts";
   import { acceleratorKeys } from "@shared/shortcuts.ts";
   import { LAUNCHER_PLACES } from "@shared/launcherPlaces.ts";
-  import type { LauncherContent, LauncherPlaceId, StartMenuMode, WinKeyState } from "@shared/types.ts";
+  import type { LauncherContent, LauncherPlaceId, SearchEngine, StartMenuMode, WinKeyState } from "@shared/types.ts";
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import { editor } from "../state/editor.svelte.ts";
@@ -154,6 +155,28 @@
         </label>
       {/each}
     </div>
+  </SettingsGroup>
+
+  <SettingsGroup title={t("launcherPage.search")}>
+    <SettingsRow label={t("launcherPage.searchFiles")} hint={t("launcherPage.searchFilesHint")}>
+      <Switch
+        checked={launcher.searchFiles}
+        onchange={(v) => editor.update((s) => (s.launcher.searchFiles = v))}
+      />
+    </SettingsRow>
+    <SettingsRow label={t("launcherPage.searchEngine")} hint={t("launcherPage.searchEngineHint")}>
+      <Select
+        value={launcher.searchEngine}
+        options={[
+          { value: "Bing" as SearchEngine, label: "Bing" },
+          { value: "Google" as SearchEngine, label: "Google" },
+          { value: "Baidu" as SearchEngine, label: t("launcherPage.engineBaidu") },
+          { value: "DuckDuckGo" as SearchEngine, label: "DuckDuckGo" },
+          { value: "None" as SearchEngine, label: t("launcherPage.engineNone") },
+        ]}
+        onchange={(v) => editor.update((s) => (s.launcher.searchEngine = v))}
+      />
+    </SettingsRow>
   </SettingsGroup>
 
   <SettingsGroup title={t("launcherPage.switcher")}>

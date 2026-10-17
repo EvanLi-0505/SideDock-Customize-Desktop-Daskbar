@@ -18,7 +18,8 @@
   import { api, iconUrl } from "@shared/ipc.ts";
   import { settingsState } from "@shared/state/settings.svelte.ts";
   import { insertionIndex } from "@shared/trayDrag.ts";
-  import type { StartApp } from "@shared/types.ts";
+  import type { FileHit, StartApp } from "@shared/types.ts";
+  import { asUrl, engineName, evaluateMath, formatNumber, webSearchUrl } from "@shared/launcherSearch.ts";
   import { search, startApps } from "../state/apps.svelte.ts";
   import { launcherLayout, layoutActions, type Tile } from "../state/layout.svelte.ts";
   import { wheelStepper } from "../wheel.ts";
@@ -55,6 +56,49 @@
         ? startApps.list.map(appTile)
         : launcherLayout.tiles,
   );
+  // ---------------- search: quick answers and files ----------------
+  const searchSettings = $derived(settingsState.value.launcher);
+  const mathResult = $derived(searching ? evaluateMath(query) : null);
+  const url = $derived(searching ? asUrl(query) : null);
+  const webUrl = $derived(searching ? webSearchUrl(searchSettings.searchEngine, query) : null);
+  let files = $state<FileHit[]>([]);
+  let fileRequest = 0;
+
+  // files matching the search, shortly after typing stops
+  $effect(() => {
+    const q = query.trim();
+    const wanted = searchSettings.searchFiles && mathResult === null;
+    const id = ++fileRequest;
+    if (!q || !wanted) {
+      files = [];
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const hits = await api.launcherSearchFiles(q).catch(() => [] as FileHit[]);
+      if (id === fileRequest) files = hits.slice(0, 6);
+    }, 120);
+    return () => clearTimeout(timer);
+  });
+
+  async function copyResult() {
+    if (mathResult === null) return;
+    const text = formatNumber(mathResult);
+    try {
+      await navigator.clipboard.writeText(text);
+      flash(t("launcher.copied", { value: text }));
+    } catch {
+      flash(text);
+    }
+  }
+
+  function openUrl(target: string) {
+    api.launcherOpenUrl(target).catch((err) => flash(String(err)));
+  }
+
+  function openFile(file: FileHit, reveal = false) {
+    api.launcherOpenFile(file.path, reveal).catch((err) => flash(String(err)));
+  }
+
   /** the arrangement can be edited (drag, collections) */
   const editable = $derived(!searching && view === "home");
   const pages = $derived.by(() => {
@@ -196,8 +240,16 @@
         else api.overlayHide();
         break;
       case "Enter": {
+        // arithmetic first: "2+3" is never an app
+        if (mathResult !== null) {
+          copyResult();
+          break;
+        }
         const tile = tiles[selected] ?? (searching ? tiles[0] : undefined);
         if (tile) activate(tile, e.ctrlKey && e.shiftKey);
+        else if (url) openUrl(url);
+        else if (files[0]) openFile(files[0]);
+        else if (webUrl) openUrl(webUrl);
         break;
       }
       case "ArrowRight":
@@ -542,6 +594,61 @@
       </button>
     {/if}
   </div>
+
+  {#if searching && (mathResult !== null || url || webUrl || files.length)}
+    <div class="results">
+      <div class="quick">
+        {#if mathResult !== null}
+          <button type="button" class="quick-item" onclick={copyResult}>
+            <Icon name="Calculator" size={15} />
+            <span class="quick-main">= {formatNumber(mathResult)}</span>
+            <span class="quick-hint">{t("launcher.calcHint")}</span>
+          </button>
+        {/if}
+        {#if url}
+          {@const target = url}
+          <button type="button" class="quick-item" onclick={() => openUrl(target)}>
+            <Icon name="Globe" size={15} />
+            <span class="quick-main">{target}</span>
+            <span class="quick-hint">{t("launcher.openUrl")}</span>
+          </button>
+        {/if}
+        {#if webUrl}
+          {@const target = webUrl}
+          <button type="button" class="quick-item" onclick={() => openUrl(target)}>
+            <Icon name="Search" size={15} />
+            <span class="quick-main">
+              {t("launcher.webSearch", { engine: engineName(searchSettings.searchEngine), query: query.trim() })}
+            </span>
+          </button>
+        {/if}
+      </div>
+      {#if files.length}
+        <div class="files">
+          <span class="files-title">{t("launcher.files")}</span>
+          {#each files as file (file.path)}
+            <div class="file">
+              <button type="button" class="file-open" title={file.path} onclick={() => openFile(file)}>
+                <img src={iconUrl(file.path)} alt="" draggable="false" />
+                <span class="file-name">{file.name}</span>
+                <span class="file-folder">{file.recent ? t("launcher.recent") : file.folder}</span>
+              </button>
+              {#if !file.recent}
+                <button
+                  type="button"
+                  class="file-reveal"
+                  title={t("launcher.openLocation")}
+                  onclick={() => openFile(file, true)}
+                >
+                  <Icon name="FolderOpen" size={14} />
+                </button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <div
     class="grid-area"

@@ -1,6 +1,9 @@
 <script lang="ts" module>
   // per-icon imports keep builds fast (the barrel file compiles ~1900 icons)
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import DatabaseBackup from "@lucide/svelte/icons/database-backup";
+  import ArchiveRestore from "@lucide/svelte/icons/archive-restore";
+  import FolderCog from "@lucide/svelte/icons/folder-cog";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import Eye from "@lucide/svelte/icons/eye";
@@ -217,6 +220,9 @@
     Wifi,
     X,
     XCircle,
+    DatabaseBackup,
+    ArchiveRestore,
+    FolderCog,
   } as const;
 
   export type IconName = keyof typeof ICONS;

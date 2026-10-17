@@ -40,6 +40,8 @@ pub struct UserAppWindow {
     pub is_zoomed: bool,
     pub is_fullscreen: bool,
     pub last_foreground_at: i64,
+    /// asks for attention (flashes on the taskbar) until it is brought to the front
+    pub attention: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -112,6 +114,29 @@ fn snapshot(window: Window, last_foreground_at: i64) -> UserAppWindow {
         is_zoomed: window.is_maximized(),
         is_fullscreen: window.is_fullscreen(),
         last_foreground_at,
+        attention: false,
+    }
+}
+
+/// A window starts / stops asking for attention (`attention.rs`). Only tracked windows
+/// count; the docks are told at once.
+pub fn set_attention(hwnd: isize, on: bool) {
+    let changed = {
+        let mut list = WINDOWS.write();
+        match list.iter_mut().find(|w| w.hwnd == hwnd) {
+            // a window in the foreground has the user's attention already
+            Some(w) if w.attention != on && !(on && Window::foreground().map(|f| f.0) == Some(hwnd)) => {
+                w.attention = on;
+                true
+            }
+            _ => false,
+        }
+    };
+    if changed {
+        if on {
+            log::debug!("window {hwnd:#x} asks for attention");
+        }
+        app::emit(EVENT_WINDOWS_CHANGED, &*WINDOWS.read());
     }
 }
 
@@ -156,18 +181,21 @@ fn update_focus(window: Window) {
 /// Full rescan in z-order. Returns true if the list changed.
 fn rescan() -> bool {
     let now = now_millis();
-    let old: HashMap<isize, i64> = WINDOWS
+    let old: HashMap<isize, (i64, bool)> = WINDOWS
         .read()
         .iter()
-        .map(|w| (w.hwnd, w.last_foreground_at))
+        .map(|w| (w.hwnd, (w.last_foreground_at, w.attention)))
         .collect();
     let fresh: Vec<UserAppWindow> = Window::enumerate()
         .into_iter()
         .filter(|w| w.is_app_window())
         .enumerate()
         .map(|(i, w)| {
-            let stamp = old.get(&w.0).copied().unwrap_or(now - i as i64);
-            snapshot(w, stamp)
+            let (stamp, attention) = old.get(&w.0).copied().unwrap_or((now - i as i64, false));
+            UserAppWindow {
+                attention,
+                ..snapshot(w, stamp)
+            }
         })
         .collect();
     let mut list = WINDOWS.write();
@@ -190,6 +218,8 @@ fn handle_event(ev: event_hook::WinEvent) -> bool {
                 if let Some(w) = WINDOWS.write().iter_mut().find(|w| w.hwnd == ev.hwnd) {
                     w.last_foreground_at = now;
                     w.is_iconic = false;
+                    // seen: it no longer asks for attention
+                    w.attention = false;
                 }
                 return true;
             }

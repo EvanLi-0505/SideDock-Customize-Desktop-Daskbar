@@ -301,6 +301,7 @@
   function labelFor(item: DockItem): string {
     if (item.type === "App") return item.displayName;
     if (item.type === "Module") return t(`module.${item.module}` as never);
+    if (item.type === "Stack") return item.name;
     return "";
   }
 </script>

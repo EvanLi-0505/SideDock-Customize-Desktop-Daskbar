@@ -6,6 +6,7 @@
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import StorageCards from "../components/StorageCards.svelte";
+  import BackupCard from "../components/BackupCard.svelte";
 
   let info = $state<AppInfo | null>(null);
   api.getAppInfo().then((i) => (info = i));
@@ -24,4 +25,6 @@
   </SettingsGroup>
 
   <StorageCards kinds={["logs", "userdata", "cache", "config"]} />
+
+  <BackupCard />
 </div>

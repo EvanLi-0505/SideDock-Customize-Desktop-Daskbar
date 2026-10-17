@@ -16,10 +16,11 @@ use crate::{
     modules::{
         apps, custom_buttons, hotkeys, icons,
         shell_flyouts::{self, Flyout},
-        start_apps, system, system_tray, win_key,
+        file_search, start_apps, system, system_tray, win_key,
     },
     paths, session,
     state::{
+        backup::{self, BackupEntry, BackupInfo},
         dock_items::{self, DockItem, DockItems},
         launcher_layout::{self, LauncherLayout},
         settings::{self, AppSettings, DockSettings, StartMenuMode},
@@ -74,6 +75,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         overlay_hide,
         overlay_toggle_launcher,
         overlay_launch,
+        launcher_search_files,
+        launcher_open_file,
+        launcher_open_url,
         overlay_set_thumbnails,
         overlay_switcher_select,
         overlay_activate_window,
@@ -122,6 +126,12 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         get_storage_usage,
         open_data_dir,
         clear_data,
+        backup_info,
+        backup_create,
+        backup_restore,
+        backup_delete,
+        backup_set_dir,
+        backup_open_dir,
         restart_app,
         quit_app,
     ]
@@ -185,12 +195,15 @@ async fn reset_dock_items() -> Result<DockItems> {
 /// Adds apps to a dock (`store`: `None` = main dock), skipping those already there.
 fn pin_items(store: Option<&str>, new_items: Vec<dock_items::AppItem>) -> Result<usize> {
     let mut items = dock_items::get_for(store);
+    // apps already on the dock, in a stack too
     let existing: Vec<String> = items
         .all()
-        .filter_map(|i| match i {
-            DockItem::App(a) => Some(a.path.to_string_lossy().to_lowercase()),
-            _ => None,
+        .flat_map(|i| match i {
+            DockItem::App(a) => vec![a],
+            DockItem::Stack { items, .. } => items.iter().collect(),
+            _ => Vec::new(),
         })
+        .map(|a| a.path.to_string_lossy().to_lowercase())
         .collect();
     let mut added = 0;
     for item in new_items {
@@ -449,6 +462,41 @@ async fn overlay_launch(app: AppHandle, id: String, elevated: bool) -> Result<()
     }
     log::info!("launcher: start {id} (elevated: {elevated})");
     overlay::launch(&app, &id, elevated)
+}
+
+/// Files and folders of the user's folders matching the launcher's search.
+#[tauri::command]
+async fn launcher_search_files(query: String) -> Vec<file_search::FileHit> {
+    if !settings::get().launcher.search_files {
+        return Vec::new();
+    }
+    file_search::search(&query)
+}
+
+/// Opens a file search result (`reveal`: shows it in its folder) and closes the launcher.
+#[tauri::command]
+async fn launcher_open_file(app: AppHandle, path: PathBuf, reveal: bool) -> Result<()> {
+    if !throttle(&format!("file:{}", path.display()), Duration::from_millis(800)) {
+        return Ok(());
+    }
+    file_search::open(&path, reveal)?;
+    overlay::hide(&app);
+    Ok(())
+}
+
+/// Opens a web address typed in the launcher (or a web search) in the default browser.
+#[tauri::command]
+async fn launcher_open_url(app: AppHandle, url: String) -> Result<()> {
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) || url.len() > 4096 {
+        return Err("not a web address".into());
+    }
+    if !throttle("launcher-url", Duration::from_millis(800)) {
+        return Ok(());
+    }
+    shell::open_uri(&url)?;
+    overlay::hide(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -858,6 +906,61 @@ async fn clear_data(app: AppHandle, kind: String) -> Result<ClearResult> {
         }
         other => Err(format!("unknown data kind {other}").into()),
     }
+}
+
+// ======================= configuration backups =======================
+
+#[tauri::command]
+async fn backup_info() -> BackupInfo {
+    backup::info()
+}
+
+#[tauri::command]
+async fn backup_create() -> Result<BackupEntry> {
+    backup::create(false)
+}
+
+/// Restores a backup (from the list or a file the user picked), then restarts.
+#[tauri::command]
+async fn backup_restore(app: AppHandle, path: PathBuf) -> Result<()> {
+    backup::restore(&path)?;
+    // answer the page first, then restart: every part reads the configuration again
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(400));
+        app::restart(&app);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+async fn backup_delete(path: PathBuf) -> Result<()> {
+    backup::delete(&path)
+}
+
+/// `None` = back to `backups` next to SideDock.exe.
+#[tauri::command]
+async fn backup_set_dir(app: AppHandle, dir: Option<String>) -> Result<BackupInfo> {
+    let dir = dir.map(|d| d.trim().to_string()).unwrap_or_default();
+    if !dir.is_empty() {
+        let path = PathBuf::from(&dir);
+        if !path.is_absolute() || !path.is_dir() {
+            return Err(format!("{dir} is not a folder").into());
+        }
+    }
+    let mut s = settings::get();
+    s.backup_dir = dir;
+    app::apply_settings(&app, s)?;
+    Ok(backup::info())
+}
+
+/// Opens the backup folder (it only exists once a backup was made).
+#[tauri::command]
+async fn backup_open_dir() -> Result<()> {
+    let dir = backup::dir();
+    if !dir.is_dir() {
+        return Err("no backup yet".into());
+    }
+    shell::launch(&dir.to_string_lossy(), None, None, false)
 }
 
 #[tauri::command]

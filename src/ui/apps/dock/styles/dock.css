@@ -702,3 +702,43 @@ body.dragging * {
 :root[data-aux] .weg-item-open-sign {
   display: none;
 }
+
+/* a window of the app asks for attention, like the taskbar's orange button: a few pulses,
+   then it stays tinted until the window is brought to the front */
+:root {
+  --dock-attention: #f59e0b;
+}
+
+.weg-item.attention {
+  background-color: color-mix(in srgb, var(--dock-attention) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dock-attention) 65%, transparent);
+  animation: attention-pulse 0.9s ease-in-out 4;
+}
+
+.weg-item-open-sign.weg-item-open-sign-attention {
+  opacity: 1;
+  background: var(--dock-attention);
+  .vertical & {
+    height: 50%;
+  }
+  .horizontal & {
+    width: 50%;
+  }
+}
+
+/* auxiliary docks show no running indicators, but they do show this one */
+:root[data-aux] .weg-item-open-sign.weg-item-open-sign-attention {
+  display: block;
+}
+
+@keyframes attention-pulse {
+  50% {
+    background-color: color-mix(in srgb, var(--dock-attention) 65%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weg-item.attention {
+    animation: none;
+  }
+}

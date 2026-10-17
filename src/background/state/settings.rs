@@ -107,6 +107,19 @@ pub struct LauncherSettings {
     /// shortcuts in the launcher's bottom bar, in order (see `LAUNCHER_PLACES`); the user
     /// and the power button are always there
     pub places: Vec<String>,
+    /// the search also lists files of the user's folders (`modules/file_search.rs`)
+    pub search_files: bool,
+    /// web search offered for what is typed (`None`: not offered)
+    pub search_engine: SearchEngine,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SearchEngine {
+    Bing,
+    Google,
+    Baidu,
+    DuckDuckGo,
+    None,
 }
 
 /// Shortcuts the launcher's bottom bar can show, like the folders next to the power
@@ -141,6 +154,8 @@ impl Default for LauncherSettings {
             places: ["settings", "explorer", "downloads"]
                 .map(String::from)
                 .to_vec(),
+            search_files: true,
+            search_engine: SearchEngine::Bing,
         }
     }
 }
@@ -665,6 +680,8 @@ pub struct AppSettings {
     pub aux_docks: Vec<AuxDockSettings>,
     /// action id -> accelerator ("Ctrl+Alt+Backquote"); empty string = disabled
     pub shortcuts: BTreeMap<String, String>,
+    /// folder for configuration backups; empty = `backups` next to SideDock.exe
+    pub backup_dir: String,
 }
 
 /// Global shortcuts and their defaults. Keep in sync with `src/ui/shared/shortcuts.ts`.
@@ -696,6 +713,7 @@ impl Default for AppSettings {
             taskbar: TaskbarSettings::default(),
             aux_docks: default_aux_docks(),
             shortcuts: default_shortcuts(),
+            backup_dir: String::new(),
         }
     }
 }

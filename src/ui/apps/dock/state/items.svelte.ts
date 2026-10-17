@@ -12,6 +12,7 @@ import type {
   DockItems,
   ModuleId,
   SeparatorDockItem,
+  StackDockItem,
   UserAppWindow,
 } from "@shared/types.ts";
 import { systemState } from "./system.svelte.ts";
@@ -169,6 +170,61 @@ export const dockActions = {
   },
 };
 
+// ---------------- folder stacks ----------------
+
+function findStack(id: string): { index: number; stack: StackDockItem } | null {
+  const index = dock.items.findIndex((i) => i.id === id && i.type === "Stack");
+  return index < 0 ? null : { index, stack: dock.items[index] as StackDockItem };
+}
+
+export const stackActions = {
+  /** Puts a pinned app into a new stack, in the app's place. */
+  create(appId: string, name: string) {
+    const index = dock.items.findIndex((i) => i.id === appId && i.type === "App" && i.pinned);
+    if (index < 0) return;
+    const app = dock.items[index] as AppDockItem;
+    const stack: StackDockItem = { id: crypto.randomUUID(), type: "Stack", name, items: [app] };
+    const items = [...dock.items];
+    items.splice(index, 1, stack);
+    dockState.items = items;
+  },
+  /** Moves a pinned app of the dock into a stack. */
+  moveInto(appId: string, stackId: string) {
+    const app = dock.items.find((i): i is AppDockItem => i.id === appId && i.type === "App" && i.pinned);
+    if (!app) return;
+    dockState.items = dock.items
+      .filter((i) => i.id !== appId)
+      .map((i) => (i.id === stackId && i.type === "Stack" ? { ...i, items: [...i.items, app] } : i));
+  },
+  /** Moves an app out of a stack, right after it; an empty stack goes away. */
+  moveOut(stackId: string, appId: string) {
+    const found = findStack(stackId);
+    const app = found?.stack.items.find((a) => a.id === appId);
+    if (!found || !app) return;
+    const rest = found.stack.items.filter((a) => a.id !== appId);
+    const items = [...dock.items];
+    items.splice(found.index, 1, ...(rest.length ? [{ ...found.stack, items: rest }] : []), app);
+    dockState.items = items;
+  },
+  rename(stackId: string, name: string) {
+    const next = name.trim().slice(0, 40);
+    if (!next) return;
+    dockState.items = dock.items.map((i) => (i.id === stackId && i.type === "Stack" ? { ...i, name: next } : i));
+  },
+  /** Puts the apps of a stack back on the dock, in its place. */
+  ungroup(stackId: string) {
+    const found = findStack(stackId);
+    if (!found) return;
+    const items = [...dock.items];
+    items.splice(found.index, 1, ...found.stack.items);
+    dockState.items = items;
+  },
+  /** The stacks of this dock (for "move to stack"). */
+  list(): StackDockItem[] {
+    return dock.items.filter((i): i is StackDockItem => i.type === "Stack");
+  },
+};
+
 // ---------------- lifecycle ----------------
 
 export async function initItems(): Promise<void> {
@@ -201,11 +257,13 @@ export async function initItems(): Promise<void> {
       const windows = systemState.windows;
       const state = dock;
       const apps = state.items.filter((i): i is AppDockItem => i.type === "App");
+      // apps in a stack are pinned too: their windows need no item of their own
+      const stacked = state.items.flatMap((i) => (i.type === "Stack" ? i.items : []));
 
       const toRemove = new Set(
         apps.filter((i) => !i.pinned && getWindowsForItem(i, windows).length === 0).map((i) => i.id),
       );
-      const remaining = apps.filter((i) => !toRemove.has(i.id));
+      const remaining = [...apps.filter((i) => !toRemove.has(i.id)), ...stacked];
       const uncovered = windows.filter(
         (w) => !remaining.some((item) => getWindowsForItem(item, [w]).length > 0),
       );

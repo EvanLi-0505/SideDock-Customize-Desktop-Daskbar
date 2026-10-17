@@ -1,5 +1,52 @@
 # Changelog
 
+## 3.0.0 - 2026-10-18
+
+### Attention on the dock
+
+- When an app asks for attention (`FlashWindowEx`: a new message, a finished download,
+  the orange taskbar button), its dock icon pulses a few times, then stays orange until
+  the window is brought to the front. Extra docks and folder stacks show it too.
+- Received through the shell hook (`RegisterShellHookWindow`), no polling.
+
+### Folder stacks
+
+- Several pinned apps behind one dock icon: right-click a pinned app > "New folder stack"
+  or "Move to stack". The icon shows four of its apps; a click opens a grid.
+- In the grid: click an app to switch to it or start it, rename the stack at the top,
+  move an app back out onto the dock. Right-click the stack to ungroup or remove it.
+- Running, focused and attention marks show on the stack; its running apps get no
+  duplicate icon. Works on the extra docks too, and is part of backups.
+- The pinned apps lists of the settings (main dock, extra docks) keep listing apps put in
+  a stack, marked "In stack · <name>"; removing one there takes it out of its stack.
+
+### Launcher search
+
+- Files: Desktop, Documents, Downloads, Pictures, Music, Videos and the recent items, by
+  name; open a result or its folder. The list is built in the background and kept in
+  memory only (nothing written to disk); depth, size and time are bounded and tool
+  folders (`node_modules`, `.git`, ...) are skipped.
+- Arithmetic: `12*(3+4)`, `2^10`, `(1+2)×3`... (a small parser, no `eval`); Enter copies
+  the result. Dates such as 2024-10-18 are left alone.
+- Addresses such as `github.com` or `localhost:3000` open in the browser.
+- Web search with Bing (default), Google, Baidu or DuckDuckGo, or off. Settings > "Start &
+  switcher" > Search also turns the file search off.
+
+### Backup & restore
+
+- A "Backup & restore" card on the "Data & logs" page: back up the settings, dock and
+  extra dock items and launcher layout as one readable JSON file, see the backup folder,
+  open it, change it or go back to the default.
+- Backups go to `backups` next to SideDock.exe (created by the first backup) or to a
+  folder the user picks; nowhere else.
+- Restore from the list or from any backup file: the current configuration is backed up
+  first (marked "before a restore"), then SideDock restarts with the restored one. The
+  backup folder and autostart stay as they are on this computer.
+- Backups deleted or moved by hand are noticed within a few seconds (and when the
+  settings window comes back to the front): they stay listed as no longer valid, with
+  only "Remove entry"; a deleted backup folder is reported and created again by the next
+  backup.
+
 ## 2.3.1 - 2026-10-17
 
 ### Fixed

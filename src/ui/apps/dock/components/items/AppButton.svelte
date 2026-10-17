@@ -12,6 +12,8 @@
 
   const settings = $derived(layout.settings);
   const isFocused = $derived(windows.some((w) => w.hwnd === systemState.focused?.hwnd));
+  // a window of the app flashes on the taskbar (new message, finished download...)
+  const attention = $derived(windows.some((w) => w.attention));
   const title = $derived(settings.showWindowTitle && layout.horizontal && windows.length ? windows[0]!.title : null);
   const icon = $derived(iconUrl(item.relaunch?.command || item.path || windows[0]?.path, item.umid));
   const tip = $derived(windows.length === 1 && windows[0]!.title ? windows[0]!.title : item.displayName);
@@ -40,6 +42,7 @@
     tabindex="-1"
     class="weg-item"
     class:has-title={!!title}
+    class:attention
     use:tooltip={() => tip}
     onclick={onClick}
     onauxclick={onAuxClick}
@@ -62,6 +65,7 @@
       class="weg-item-open-sign"
       class:weg-item-open-sign-active={windows.length > 0}
       class:weg-item-open-sign-focused={isFocused}
+      class:weg-item-open-sign-attention={attention}
     ></div>
   {/if}
 </div>
