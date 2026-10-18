@@ -195,21 +195,22 @@ async fn reset_dock_items() -> Result<DockItems> {
 /// Adds apps to a dock (`store`: `None` = main dock), skipping those already there.
 fn pin_items(store: Option<&str>, new_items: Vec<dock_items::AppItem>) -> Result<usize> {
     let mut items = dock_items::get_for(store);
-    // apps already on the dock, in a stack too
-    let existing: Vec<String> = items
+    // apps already on the dock, in a stack too (`AppItem::same_app`: Store apps have no
+    // path, so comparing paths alone took every one of them for the first)
+    let mut existing: Vec<dock_items::AppItem> = items
         .all()
         .flat_map(|i| match i {
-            DockItem::App(a) => vec![a],
-            DockItem::Stack { items, .. } => items.iter().collect(),
+            DockItem::App(a) => vec![a.clone()],
+            DockItem::Stack { items, .. } => items.clone(),
             _ => Vec::new(),
         })
-        .map(|a| a.path.to_string_lossy().to_lowercase())
         .collect();
     let mut added = 0;
     for item in new_items {
-        if existing.contains(&item.path.to_string_lossy().to_lowercase()) {
+        if existing.iter().any(|e| e.same_app(&item)) {
             continue;
         }
+        existing.push(item.clone());
         items.center.push(DockItem::App(item));
         added += 1;
     }

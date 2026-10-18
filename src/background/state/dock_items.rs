@@ -49,6 +49,22 @@ pub struct AppItem {
     pub relaunch: Option<Relaunch>,
 }
 
+impl AppItem {
+    /// Whether `other` starts the same app. Packaged (Store) apps have no path, only an
+    /// AppUserModelID, and apps sharing an executable (web apps of a browser) differ by
+    /// it: when both have one it decides; otherwise the paths do, and an empty path
+    /// never matches anything.
+    pub fn same_app(&self, other: &AppItem) -> bool {
+        match (self.umid.as_deref(), other.umid.as_deref()) {
+            (Some(a), Some(b)) if !a.is_empty() && !b.is_empty() => a.eq_ignore_ascii_case(b),
+            _ => {
+                let a = self.path.to_string_lossy();
+                !a.is_empty() && a.eq_ignore_ascii_case(&other.path.to_string_lossy())
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum DockItem {
@@ -285,6 +301,30 @@ mod tests {
         assert_eq!(name.chars().count(), STACK_NAME_MAX);
         let ids: Vec<&str> = apps.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(ids, ["a", "c"], "duplicates and unpinned apps are dropped");
+    }
+
+    #[test]
+    fn packaged_apps_are_told_apart() {
+        let packaged = |umid: &str| AppItem {
+            path: PathBuf::new(),
+            umid: Some(umid.into()),
+            ..app("p", true)
+        };
+        let whatsapp = packaged("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App");
+        let claude = packaged("Claude_pzs8sxrjxfjjc!Claude");
+        assert!(!whatsapp.same_app(&claude), "no path is not the same path");
+        assert!(whatsapp.same_app(&packaged("5319275a.whatsappdesktop_cv1g1gvanyjgm!app")));
+        // web apps of one browser: same executable, different ids
+        let pwa = |umid: &str| AppItem {
+            umid: Some(umid.into()),
+            ..app("chrome_proxy", true)
+        };
+        assert!(!pwa("Chrome._crx_a").same_app(&pwa("Chrome._crx_b")));
+        // classic programs: by path, whatever the case
+        let mut upper = app("notepad", true);
+        upper.path = PathBuf::from("C:\\NOTEPAD.exe");
+        assert!(app("notepad", true).same_app(&upper));
+        assert!(!app("a", true).same_app(&app("b", true)));
     }
 
     #[test]

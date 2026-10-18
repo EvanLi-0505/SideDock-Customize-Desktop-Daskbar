@@ -102,9 +102,63 @@ fn marker() -> PathBuf {
     paths::get().runtime.join("win-key-task.txt")
 }
 
+/// Whether the scheduled task starts this very SideDock.exe.
+///
+/// The task is one for the whole system, while every SideDock copy (another folder, a
+/// test copy) keeps its own marker file: a copy registering the task points it to
+/// itself, and the marker of the others becomes wrong. Starting the task then ran
+/// another copy, or a deleted one ("file not found"), and the helper never came up. So
+/// the task itself is asked which program it runs.
 fn task_matches_exe() -> bool {
-    std::fs::read_to_string(marker())
-        .is_ok_and(|p| std::path::Path::new(p.trim()) == paths::get().exe)
+    task_command().is_some_and(|cmd| {
+        cmd.to_string_lossy()
+            .eq_ignore_ascii_case(&paths::get().exe.to_string_lossy())
+    })
+}
+
+/// The program the scheduled task runs, `None` when there is no task.
+fn task_command() -> Option<PathBuf> {
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let out = std::process::Command::new("schtasks.exe")
+        .args(["/Query", "/TN", TASK_NAME, "/XML"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
+    command_of(&decode_console(&out.stdout))
+}
+
+/// The `<Command>` of a task's XML.
+fn command_of(xml: &str) -> Option<PathBuf> {
+    let start = xml.find("<Command>")? + "<Command>".len();
+    let end = start + xml[start..].find("</Command>")?;
+    let command = xml_unescape(xml[start..end].trim());
+    Some(PathBuf::from(command.trim_matches('"')))
+}
+
+/// schtasks writes in the console code page when it is not UTF-8 (a path with Chinese
+/// characters).
+fn decode_console(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_string();
+    }
+    use windows::Win32::Globalization::{CP_OEMCP, MULTI_BYTE_TO_WIDE_CHAR_FLAGS, MultiByteToWideChar};
+    let flags = MULTI_BYTE_TO_WIDE_CHAR_FLAGS(0);
+    let len = unsafe { MultiByteToWideChar(CP_OEMCP, flags, bytes, None) };
+    if len <= 0 {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    let mut wide = vec![0u16; len as usize];
+    unsafe { MultiByteToWideChar(CP_OEMCP, flags, bytes, Some(&mut wide)) };
+    String::from_utf16_lossy(&wide)
+}
+
+fn xml_unescape(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
 }
 
 fn schtasks(args: &[&str]) -> bool {
@@ -439,4 +493,21 @@ pub fn disable(app: &AppHandle) -> Result<WinKeyState> {
 
 pub fn shutdown() {
     stop_helper();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_command_of_the_task() {
+        let xml = r#"<Task><Actions><Exec>
+<Command>D:\Apps\Side &amp; Dock\SideDock.exe</Command>
+<Arguments>--win-key-helper</Arguments></Exec></Actions></Task>"#;
+        assert_eq!(
+            command_of(xml),
+            Some(PathBuf::from(r"D:\Apps\Side & Dock\SideDock.exe"))
+        );
+        assert_eq!(command_of("<Task/>"), None);
+    }
 }

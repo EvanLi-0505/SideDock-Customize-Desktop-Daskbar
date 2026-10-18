@@ -3,6 +3,23 @@
 Version numbers are `main.feature.hotfix`: a release with new features raises the
 middle number, a release with fixes only raises the last one.
 
+## 3.1.1 - 2026-10-18
+
+### Fixed
+
+- Store apps (WhatsApp, Claude...) could only be pinned while no other Store app was on
+  the dock: "Pin to dock" said the app was already there, but nothing was added. Pinned
+  apps were compared by their file path, and Store apps have none. Apps are now compared
+  by their AppUserModelID when both have one (which also tells apart the web apps of
+  one browser), else by a non-empty path. Applies to the main dock, the extra docks,
+  dropped files and the taskbar import.
+- "Win key opens the SideDock launcher" could fail with "the administrator helper did
+  not start" after using another SideDock copy (another folder, a test copy). The
+  scheduled task is one for the whole system and points to the copy that registered it
+  last, while each copy trusted its own marker file: it started the task, which ran the
+  other copy, or a deleted one. SideDock now reads which program the task really runs;
+  when it is another one, the settings ask to authorize again (one UAC prompt) instead.
+
 ## 3.1.0 - 2026-10-18
 
 ### Where new apps appear
