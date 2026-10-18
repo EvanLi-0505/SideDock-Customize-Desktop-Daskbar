@@ -168,6 +168,8 @@ export interface ToolbarSettings {
   height: number;
   /** in the hidden taskbar's place: exactly the taskbar's height */
   matchTaskbarHeight: boolean;
+  /** lower than the hidden taskbar: fill the rest of its space */
+  fillGap: FillGap;
   /** content size, percent */
   scale: number;
   /** null = same theme as the dock */
@@ -505,7 +507,13 @@ export interface ToolbarInfo {
   /** CSS px at its ends covered by a Windows flyout (quick settings, notifications) */
   coveredLeft: number;
   coveredRight: number;
+  /** the background fills the hidden taskbar's whole space; the items keep `contentHeight` */
+  filled: boolean;
+  contentHeight: number;
 }
+
+/** Whether a toolbar lower than the hidden taskbar fills the rest of its space. */
+export type FillGap = "Off" | "WhenNeeded" | "Always";
 
 /** A notification area icon of another application. */
 export interface TrayIcon {

@@ -54,27 +54,33 @@ fn sources(path: Option<&str>, umid: Option<&str>) -> Vec<String> {
 }
 
 pub fn get_png(path: Option<&str>, umid: Option<&str>) -> Vec<u8> {
+    try_png(path, umid).unwrap_or_else(|| EMPTY_PNG.to_vec())
+}
+
+/// The icon, or `None` when it cannot be extracted (yet: an app being updated, a file
+/// still being written...).
+pub fn try_png(path: Option<&str>, umid: Option<&str>) -> Option<Vec<u8>> {
     for source in sources(path, umid) {
         let key = key_for(&source);
         if let Some(bytes) = MEMORY.lock().get(&key) {
-            return bytes.clone();
+            return Some(bytes.clone());
         }
         let file = disk_path(key);
         if let Ok(bytes) = std::fs::read(&file) {
             MEMORY.lock().insert(key, bytes.clone());
-            return bytes;
+            return Some(bytes);
         }
         match icons::extract_png(&source) {
             Ok(bytes) => {
                 let _ = std::fs::create_dir_all(paths::get().icon_cache_dir());
                 let _ = std::fs::write(&file, &bytes);
                 MEMORY.lock().insert(key, bytes.clone());
-                return bytes;
+                return Some(bytes);
             }
             Err(err) => log::debug!("no icon for {source}: {err}"),
         }
     }
-    EMPTY_PNG.to_vec()
+    None
 }
 
 /// Memory-only lookup: lets the protocol handler answer without leaving its thread.
@@ -147,9 +153,10 @@ fn params(uri: &str) -> (Option<String>, Option<String>) {
 }
 
 /// Handler for the `sdicon` URI scheme (may block: call it off the UI thread).
-pub fn handle_request(uri: &str) -> Vec<u8> {
+/// `None`: no icon this time; the page retries (`shared/iconRetry.ts`).
+pub fn handle_request(uri: &str) -> Option<Vec<u8>> {
     let (path, umid) = params(uri);
-    get_png(path.as_deref(), umid.as_deref())
+    try_png(path.as_deref(), umid.as_deref())
 }
 
 /// Non-blocking variant: only icons already in memory (and tray icons, `?tray=<id>`,

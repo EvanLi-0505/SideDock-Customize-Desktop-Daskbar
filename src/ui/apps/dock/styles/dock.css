@@ -742,3 +742,13 @@ body.dragging * {
     animation: none;
   }
 }
+
+/* the "new apps appear here" marker: a dashed separator in the accent color */
+.weg-separator.running-anchor {
+  .vertical & {
+    border-top: 1.5px dashed var(--accent);
+  }
+  .horizontal & {
+    border-left: 1.5px dashed var(--accent);
+  }
+}

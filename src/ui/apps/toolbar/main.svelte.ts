@@ -7,6 +7,9 @@ import { initSettings, setThemeOverride, settingsState } from "@shared/state/set
 import App from "./App.svelte";
 import { initOverlays } from "./overlays.ts";
 import { initToolbarState } from "./state.svelte.ts";
+import { installIconRetry } from "@shared/iconRetry.ts";
+
+installIconRetry();
 
 // the toolbar never shows the browser context menu
 window.addEventListener("contextmenu", (e) => e.preventDefault());

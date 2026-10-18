@@ -2,7 +2,7 @@
 // Listeners live on `window` so the drag survives the dragged node being moved in the DOM.
 
 import { api } from "@shared/ipc.ts";
-import { dockState } from "./state/items.svelte.ts";
+import { dockState, isHardcodedSeparator } from "./state/items.svelte.ts";
 import { layout } from "./state/layout.svelte.ts";
 
 const DRAG_THRESHOLD = 5;
@@ -37,14 +37,39 @@ function reorder(id: string, pointer: number) {
       break;
     }
   }
+  // Between the groups (a full width dock spreads them apart) there is no item under the
+  // pointer, and the separators between groups are invisible and flat: the gap goes to
+  // the nearest item, on the side the pointer is on.
+  let inGap = false;
+  if (!targetId) {
+    let nearest = Infinity;
+    for (const el of containers) {
+      const itemId = el.dataset.itemId;
+      if (!itemId || itemId === id) continue;
+      const item = dockState.items.find((i) => i.id === itemId);
+      if (!item || isHardcodedSeparator(item)) continue;
+      const r = el.getBoundingClientRect();
+      const start = horizontal ? r.left : r.top;
+      const end = horizontal ? r.right : r.bottom;
+      const distance = pointer < start ? start - pointer : pointer - end;
+      if (distance < nearest) {
+        nearest = distance;
+        targetId = itemId;
+        after = pointer > end;
+      }
+    }
+    inGap = true;
+  }
   if (!targetId || targetId === id) return;
 
   const items = [...dockState.items];
   const from = items.findIndex((i) => i.id === id);
   let to = items.findIndex((i) => i.id === targetId);
   if (from === -1 || to === -1) return;
-  // only move once the pointer crossed the middle of the neighbour
-  if ((from < to && !after) || (from > to && after)) return;
+  // over an item: only move once the pointer crossed the middle of the neighbour
+  if (!inGap && ((from < to && !after) || (from > to && after))) return;
+  // already in place next to it
+  if (inGap && (after ? from === to + 1 : from === to - 1)) return;
   const [moved] = items.splice(from, 1);
   to = items.findIndex((i) => i.id === targetId);
   items.splice(after ? to + 1 : to, 0, moved!);

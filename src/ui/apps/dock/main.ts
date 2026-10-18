@@ -10,6 +10,9 @@ import { initItems } from "./state/items.svelte.ts";
 import { initSystemState } from "./state/system.svelte.ts";
 import { applyLayoutVariables } from "./state/layout.svelte.ts";
 import { initOverlays } from "./overlays.ts";
+import { installIconRetry } from "@shared/iconRetry.ts";
+
+installIconRetry();
 
 // the dock never shows the browser context menu
 window.addEventListener("contextmenu", (e) => e.preventDefault());

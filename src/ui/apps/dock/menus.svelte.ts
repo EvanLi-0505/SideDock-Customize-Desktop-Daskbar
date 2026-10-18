@@ -8,7 +8,7 @@ import type { MenuEntry } from "@shared/menu.ts";
 import { MODULES } from "@shared/modules.ts";
 import type { AppDockItem, DockItem, ModuleId, StackDockItem, UserAppWindow } from "@shared/types.ts";
 import { openMenu, openPopup } from "./overlays.ts";
-import { dockActions, dockState, isHardcodedSeparator, stackActions } from "./state/items.svelte.ts";
+import { dockActions, dockState, isHardcodedSeparator, isRunningAnchor, stackActions } from "./state/items.svelte.ts";
 import { layout } from "./state/layout.svelte.ts";
 
 // ---------------- launching ----------------
@@ -202,6 +202,10 @@ export function showDockMenu(e: MouseEvent): void {
       label: t("dock_menu.add_separator"),
       icon: layout.horizontal ? "SeparatorVertical" : "SeparatorHorizontal",
     },
+    // auxiliary docks show no running apps
+    ...(layout.aux
+      ? []
+      : [{ type: "item", id: "running-here", label: t("dock_menu.running_here"), icon: "AppWindow" } as MenuEntry]),
     { type: "separator" },
     {
       type: "item",
@@ -225,6 +229,9 @@ export function showDockMenu(e: MouseEvent): void {
       case "add-separator":
         dockActions.addSeparatorNear(cursor, layout.horizontal);
         break;
+      case "running-here":
+        dockActions.placeRunningAnchor(cursor, layout.horizontal);
+        break;
       case "reorder":
         dockState.isReorderDisabled = !dockState.isReorderDisabled;
         break;
@@ -247,7 +254,11 @@ export function showItemMenu(e: MouseEvent, item: DockItem, extra: MenuEntry[] =
   entries.push({
     type: "item",
     id: "remove",
-    label: item.type === "Separator" ? t("item_menu.remove_separator") : t("item_menu.remove"),
+    label: isRunningAnchor(item)
+      ? t("item_menu.remove_running_anchor")
+      : item.type === "Separator"
+        ? t("item_menu.remove_separator")
+        : t("item_menu.remove"),
     icon: "Trash2",
     danger: true,
   });

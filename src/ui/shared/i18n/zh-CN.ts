@@ -465,4 +465,12 @@ export const zhCN: Record<TranslationKey, string> = {
   "backup.goneHint": "文件已被移动或删除",
   "backup.removeRecord": "移除记录",
   "backup.dirGone": "备份位置已不存在（可能被移动或删除），下次备份时会重新创建。",
+  // ---------- 3.1.0 ----------
+  "dock_menu.running_here": "新打开的程序显示在这里",
+  "dock.runningAnchor": "新打开的程序会出现在这个标记后面（可拖动调整位置）",
+  "item_menu.remove_running_anchor": "移除位置标记（恢复默认位置）",
+  "toolbar.fillGap": "填补任务栏留下的空隙",
+  "toolbar.fillGapHint": "隐藏的任务栏仍保留它的空间，所以桌面不会移动；工具栏比任务栏矮时，最大化窗口下面会露出一条壁纸。可以让背景填满这块空间，按钮大小保持不变。",
+  "toolbar.fillGapWhenNeeded": "仅在窗口贴到底部时",
+  "toolbar.fillGapOff": "关闭",
 };

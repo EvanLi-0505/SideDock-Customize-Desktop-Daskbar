@@ -4,6 +4,9 @@ import "@shared/styles/theme.css";
 import "./settings.css";
 import { api } from "@shared/ipc.ts";
 import { initSettings } from "@shared/state/settings.svelte.ts";
+import { installIconRetry } from "@shared/iconRetry.ts";
+
+installIconRetry();
 
 window.addEventListener("contextmenu", (e) => {
   // keep the native menu for text fields only

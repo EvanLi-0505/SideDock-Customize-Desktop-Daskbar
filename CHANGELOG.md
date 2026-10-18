@@ -1,5 +1,51 @@
 # Changelog
 
+Version numbers are `main.feature.hotfix`: a release with new features raises the
+middle number, a release with fixes only raises the last one.
+
+## 3.1.0 - 2026-10-18
+
+### Where new apps appear
+
+- Newly opened (unpinned) apps appear at the end of the center group, as before, unless
+  the dock has the new marker: right-click the dock > "Show new apps here" puts a dashed
+  separator next to the cursor, and the running apps move after it. Drag the marker to
+  move the place; right-click it to remove it (back to the end of the center group).
+
+### Toolbar: fill the taskbar's space
+
+- In the hidden taskbar's place, a toolbar lower than the taskbar left a strip of
+  wallpaper under maximized windows (the taskbar's space stays reserved so the desktop
+  never moves). New setting "Fill the taskbar's space" (Settings > Toolbar & taskbar,
+  shown when the toolbar does not match the taskbar's height):
+  - When a window reaches the bottom (default): while a window on that monitor reaches
+    down to the taskbar's space (maximized, or snapped to the bottom), the background
+    fills it; it shrinks back once no window does.
+  - Always, or Off.
+- The items keep the toolbar's height at the bottom; only the background grows. Nothing
+  changes for the work area, the desktop icons or the windows.
+
+### Fixed
+
+- Dragging an icon into the empty space between the dock's groups (a full width dock
+  spreads them apart) did nothing: no position preview, no drop. The space now goes to
+  the nearest icon, so an app dropped right below the start button joins the left group.
+- Apps running as administrator (a VPN client, for example) could not be brought back
+  from minimized by the dock or the window switcher: Windows ignores restore requests
+  from a program running without elevation. SideDock now falls back to the switch
+  Alt+Tab uses.
+- A dock icon could stay empty (an app's icon read while it was starting or being
+  updated): the empty picture was cached for a week. Icons that cannot be read now
+  answer "not found", are never cached, and pages ask for them again a few times.
+- The frosted glass behind a dock or the toolbar could keep a frame of a window that was
+  just minimized or restored (a white page showing through the dock). The backdrop
+  samples what is behind it again once the animation ended.
+
+### Compatibility
+
+- Tests now load settings saved by 2.0 and backups made by 3.0.0, so a change that
+  would make users' settings or backups unusable fails the build.
+
 ## 3.0.0 - 2026-10-18
 
 ### Attention on the dock

@@ -39,7 +39,7 @@ use crate::{
     app,
     error::{Result, ResultLogExt},
     modules::{apps, shell_flyouts, taskbar_visibility},
-    state::settings::{self, DockMonitors, DockSide, HideMode, ThemeMode, ToolbarPosition},
+    state::settings::{self, DockMonitors, DockSide, FillGap, HideMode, ThemeMode, ToolbarPosition},
     windows_api::{
         monitor::{self, MonitorInfo},
         window::Rect,
@@ -65,6 +65,10 @@ pub struct ToolbarInfo {
     /// notification center): the page keeps its items out of there
     pub covered_left: f64,
     pub covered_right: f64,
+    /// the background fills the hidden taskbar's whole space; the items keep
+    /// `content_height` (CSS px) and sit at the bottom
+    pub filled: bool,
+    pub content_height: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +89,12 @@ struct ToolbarState {
     pending: Option<(bool, Instant)>,
     /// physical px covered by a Windows flyout at the left / right end
     covered: (i32, i32),
+    /// the hidden taskbar's space, when the toolbar takes its place
+    slot: Option<Rect>,
+    /// a window reaches down to the hidden taskbar's space (`FillGap::WhenNeeded`)
+    gap_seen: bool,
+    /// the background fills the whole space now
+    filled: bool,
 }
 
 static TOOLBARS: LazyLock<Mutex<HashMap<String, ToolbarState>>> =
@@ -124,6 +134,9 @@ pub fn start(app: AppHandle) {
             }
             auto_hide(&app);
             update_covered(&app);
+            if tick.is_multiple_of(5) {
+                watch_gap();
+            }
         }
     });
 }
@@ -201,6 +214,9 @@ fn reconcile(app: &AppHandle) -> Result<()> {
                     laid_out: false,
                     pending: None,
                     covered: (0, 0),
+                    slot: None,
+                    gap_seen: false,
+                    filled: false,
                 },
             );
             log::info!("toolbar {label} created");
@@ -287,8 +303,16 @@ fn layout(app: &AppHandle, label: &str, monitor: &MonitorInfo) -> Result<()> {
     let replaces_taskbar = slot.is_some();
     let edge_bottom = replaces_taskbar || settings.position == ToolbarPosition::Bottom;
     let h = (settings.height as f64 * monitor.scale_factor).round() as i32;
+    // lower than the taskbar: fill the rest of its space (see `FillGap`)
+    let filled = slot.is_some_and(|s| s.height() > h)
+        && !settings.match_taskbar_height
+        && match settings.fill_gap {
+            FillGap::Off => false,
+            FillGap::Always => true,
+            FillGap::WhenNeeded => state.gap_seen,
+        };
     let rect = match slot {
-        Some(slot) if settings.match_taskbar_height => slot,
+        Some(slot) if settings.match_taskbar_height || filled => slot,
         // another height: still anchored to the bottom of the screen
         Some(slot) => Rect {
             top: slot.bottom - h,
@@ -335,6 +359,8 @@ fn layout(app: &AppHandle, label: &str, monitor: &MonitorInfo) -> Result<()> {
         || !state.laid_out;
     state.laid_out = true;
     state.rect = rect;
+    state.slot = slot;
+    state.filled = filled;
     state.replaces_taskbar = replaces_taskbar;
     state.edge_bottom = edge_bottom;
     state.auto_hide = !replaces_taskbar && settings.hide_mode != HideMode::Never;
@@ -383,8 +409,50 @@ pub fn info(label: &str) -> Option<ToolbarInfo> {
         replaces_taskbar: state.replaces_taskbar,
         covered_left: f64::from(state.covered.0) / scale,
         covered_right: f64::from(state.covered.1) / scale,
+        filled: state.filled,
+        content_height: f64::from(settings::get().toolbar.height),
         monitor,
     })
+}
+
+/// Whether a window reaches down to the hidden taskbar's space on each toolbar's monitor
+/// (maximized, or snapped to the bottom half): the toolbar fills that space meanwhile.
+/// Only `FillGap::WhenNeeded` needs it; the window list is kept by `modules/apps.rs`.
+fn watch_gap() {
+    let settings = settings::get().toolbar;
+    if settings.fill_gap != FillGap::WhenNeeded || settings.match_taskbar_height {
+        return;
+    }
+    let candidates: Vec<(String, isize, Rect, bool)> = TOOLBARS
+        .lock()
+        .iter()
+        .filter_map(|(label, t)| t.slot.map(|slot| (label.clone(), t.monitor, slot, t.gap_seen)))
+        .collect();
+    if candidates.is_empty() {
+        return;
+    }
+    let windows = crate::modules::apps::windows();
+    let mut changed = false;
+    for (label, monitor, slot, was) in candidates {
+        let seen = windows.iter().any(|w| {
+            w.monitor == monitor
+                && !w.is_iconic
+                && !w.is_fullscreen
+                && w.rect.is_some_and(|r| {
+                    // its bottom edge at (or below) the top of the taskbar's space
+                    r.bottom >= slot.top - 2 && r.top < slot.top && r.right > slot.left && r.left < slot.right
+                })
+        });
+        if seen != was {
+            if let Some(t) = TOOLBARS.lock().get_mut(&label) {
+                t.gap_seen = seen;
+            }
+            changed = true;
+        }
+    }
+    if changed {
+        DIRTY.store(true, Ordering::Release);
+    }
 }
 
 /// Tells each toolbar how much of its ends a Windows flyout covers. A toolbar floating

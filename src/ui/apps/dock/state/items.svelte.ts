@@ -34,6 +34,18 @@ export const HARDCODED_SEPARATOR_RIGHT: SeparatorDockItem = {
   type: "Separator",
 };
 
+/**
+ * Separator marking where newly opened (unpinned) apps appear. Without it they are added
+ * at the end of the center group.
+ */
+export const RUNNING_ANCHOR_ID = "running-apps-anchor";
+
+export function isRunningAnchor(item: DockItem): boolean {
+  return item.id === RUNNING_ANCHOR_ID;
+}
+
+const isTemporal = (item: DockItem) => item.type === "App" && !item.pinned;
+
 export function isHardcodedSeparator(item: DockItem): boolean {
   return item.id === HARDCODED_SEPARATOR_LEFT.id || item.id === HARDCODED_SEPARATOR_RIGHT.id;
 }
@@ -147,28 +159,51 @@ export const dockActions = {
   /** Inserts a separator next to the rendered item closest to the cursor. */
   addSeparatorNear(cursor: { x: number; y: number }, horizontal: boolean) {
     const separator: SeparatorDockItem = { id: crypto.randomUUID(), type: "Separator" };
-    const items = [...dock.items];
-    let insertIdx = items.findIndex((i) => i.id === HARDCODED_SEPARATOR_RIGHT.id);
-    let nearestId: string | undefined;
-    let nearest = Infinity;
-    let after = false;
-    for (const el of document.querySelectorAll<HTMLElement>(".weg-item-drag-container")) {
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const dist = Math.hypot(cursor.x - cx, cursor.y - cy);
-      if (dist < nearest) {
-        nearest = dist;
-        nearestId = el.dataset.itemId;
-        after = horizontal ? cursor.x > cx : cursor.y > cy;
-      }
-    }
-    const idx = items.findIndex((i) => i.id === nearestId);
-    if (idx !== -1) insertIdx = after ? idx + 1 : idx;
-    items.splice(insertIdx, 0, separator);
+    dockState.items = insertNear([...dock.items], separator, cursor, horizontal);
+  },
+  /**
+   * Puts the "new apps appear here" marker next to the item closest to the cursor; the
+   * apps running unpinned right now move after it.
+   */
+  placeRunningAnchor(cursor: { x: number; y: number }, horizontal: boolean) {
+    const temporal = dock.items.filter(isTemporal);
+    const rest = dock.items.filter((i) => !isTemporal(i) && !isRunningAnchor(i));
+    const anchor: SeparatorDockItem = { id: RUNNING_ANCHOR_ID, type: "Separator" };
+    const items = insertNear(rest, anchor, cursor, horizontal);
+    items.splice(items.findIndex(isRunningAnchor) + 1, 0, ...temporal);
     dockState.items = items;
   },
 };
+
+/** `items` with `separator` inserted next to the rendered item closest to the cursor. */
+function insertNear(
+  items: DockItem[],
+  separator: SeparatorDockItem,
+  cursor: { x: number; y: number },
+  horizontal: boolean,
+): DockItem[] {
+  let insertIdx = items.findIndex((i) => i.id === HARDCODED_SEPARATOR_RIGHT.id);
+  let nearestId: string | undefined;
+  let nearest = Infinity;
+  let after = false;
+  for (const el of document.querySelectorAll<HTMLElement>(".weg-item-drag-container")) {
+    // only items of the new list (the running apps may have been taken out)
+    if (!items.some((i) => i.id === el.dataset.itemId)) continue;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dist = Math.hypot(cursor.x - cx, cursor.y - cy);
+    if (dist < nearest) {
+      nearest = dist;
+      nearestId = el.dataset.itemId;
+      after = horizontal ? cursor.x > cx : cursor.y > cy;
+    }
+  }
+  const idx = items.findIndex((i) => i.id === nearestId);
+  if (idx !== -1) insertIdx = after ? idx + 1 : idx;
+  items.splice(insertIdx, 0, separator);
+  return items;
+}
 
 // ---------------- folder stacks ----------------
 
@@ -288,12 +323,19 @@ export async function initItems(): Promise<void> {
       if (toRemove.size === 0 && added.length === 0) return;
 
       const filtered = state.items.filter((i) => !toRemove.has(i.id));
-      const rightIdx = filtered.findIndex((i) => i.id === HARDCODED_SEPARATOR_RIGHT.id);
+      // new apps go after the marker (and the apps already following it), else at the
+      // end of the center group
+      const anchorIdx = filtered.findIndex(isRunningAnchor);
+      let insertIdx = filtered.findIndex((i) => i.id === HARDCODED_SEPARATOR_RIGHT.id);
+      if (anchorIdx !== -1) {
+        insertIdx = anchorIdx + 1;
+        while (insertIdx < filtered.length && isTemporal(filtered[insertIdx]!)) insertIdx++;
+      }
       // only unpinned items are added/removed here and those are never persisted
       remoteUpdate = true;
       dock = {
         ...state,
-        items: [...filtered.slice(0, rightIdx), ...added, ...filtered.slice(rightIdx)],
+        items: [...filtered.slice(0, insertIdx), ...added, ...filtered.slice(insertIdx)],
       };
     });
   });

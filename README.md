@@ -31,6 +31,8 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - 固定应用、文件、快捷方式；从资源管理器拖放即可固定；从 Windows 任务栏一键导入
   - 运行中的窗口按应用分组，打开/聚焦指示器，窗口计数，拆分窗口，窗口标题
   - 左中右三个分组 + 自定义分隔符，拖动排序，锁定任务栏
+  - 新打开的程序默认出现在中间分组的末尾；右键停靠栏 >“新打开的程序显示在这里”可放一个虚线标记，
+    运行中的程序会排在它后面，拖动标记即可改变位置
   - 类似 Mac 的波浪式放大：鼠标指向的图标放大并显示名称，前后图标平滑渐变
   - 应用太多时不再滚动：先缩小，再堆叠 / 继续缩小 / 折叠到“更多”按钮（可选）
   - 单击切换/最小化，多窗口弹出窗口列表，中键关闭或新建实例
@@ -91,6 +93,8 @@ SideDock 是一个 Windows 桌面停靠栏。它的停靠栏部分移植自
   - **永远不改变桌面布局**：工具栏从不占用屏幕空间（占用空间会让 Windows 重排桌面图标）。
     隐藏 Windows 任务栏且位于底部时，它正好占据任务栏原来的位置；其他情况下它浮在窗口上方，
     可设置为“与窗口重叠时隐藏”或“总是自动隐藏”（鼠标移到屏幕边缘时出现）
+  - 工具栏比原生任务栏矮时，最大化窗口下方会留出一条任务栏的空间；“填补任务栏留下的空隙”可以让工具栏背景
+    在有窗口贴到底部时（或一直）填满这块空间，按钮大小不变，桌面布局同样不受影响
   - 自由定制：左 / 中 / 右三个区域的项目（包括 CPU、内存、网速和自定义按钮）可拖动排列或隐藏，
     可调高度、内容大小（80%–140%）、显示/隐藏延迟
   - **独立主题**：可以跟随停靠栏，也可以单独选择五种主题之一并单独调节不透明度
@@ -259,6 +263,8 @@ taskbar does not change the desktop layout.
   - Pin apps, files and shortcuts; drop them from Explorer to pin; import the Windows taskbar's pins with one click
   - Running windows grouped by app, open / focused indicators, window count, split windows, window titles
   - Left, center and right groups with custom separators, drag to reorder, lock the dock
+  - Newly opened apps appear at the end of the center group; right-click the dock > "Show new apps here" puts
+    a dashed marker there instead, and running apps line up after it (drag the marker to move the place)
   - Mac-like wave magnification: the icon under the cursor grows and shows its name, its neighbors follow smoothly
   - Never scrolls when there are too many apps: icons shrink first, then stack / keep shrinking / collapse
     into a "more" button (your choice)
@@ -338,6 +344,9 @@ taskbar does not change the desktop layout.
     Windows rearrange the desktop icons). At the bottom with the Windows taskbar hidden, it takes the
     taskbar's exact place; anywhere else it floats over windows and can "hide when a window overlaps it" or
     "always hide" (it comes back when the cursor reaches the screen edge)
+  - A toolbar lower than the native taskbar leaves the rest of the taskbar's space empty under maximized
+    windows; "Fill the taskbar's space" lets its background fill it while a window reaches the bottom (or
+    always), the items keep their size and the desktop layout still does not change
   - Customizable: drag items (CPU, memory, network speed and custom buttons included) between the left,
     center and right sections or hide them; adjust the height, the content size (80%–140%) and the show /
     hide delays

@@ -15,8 +15,11 @@
   const settings = $derived(settingsState.value.toolbar);
 
   let height = $state(window.innerHeight);
+  /** filling the hidden taskbar's space: the items keep the toolbar's own height */
+  const filled = $derived(!!toolbar.info?.filled);
+  const contentHeight = $derived(filled ? (toolbar.info?.contentHeight ?? height) : height);
   /** like the Windows clock: time and date on two lines when there is room */
-  const twoLines = $derived(height >= 40 * (settings.scale / 100));
+  const twoLines = $derived(contentHeight >= 40 * (settings.scale / 100));
 
   function barMenu(e: MouseEvent) {
     openMenu(
@@ -40,6 +43,8 @@
   class="toolbar"
   class:edge-top={toolbar.info?.edge === "top"}
   class:edge-bottom={toolbar.info?.edge !== "top"}
+  class:filled
+  style:--tb-content-h="{contentHeight}px"
   style:--tb-scale={settings.scale / 100}
   style:--covered-left="{toolbar.info?.coveredLeft ?? 0}px"
   style:--covered-right="{toolbar.info?.coveredRight ?? 0}px"

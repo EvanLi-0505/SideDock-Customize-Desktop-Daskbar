@@ -7,7 +7,7 @@
   import Switch from "@shared/components/Switch.svelte";
   import { t } from "@shared/i18n/index.svelte.ts";
   import { api } from "@shared/ipc.ts";
-  import type { DockMonitors, HideMode, StartMenuMode, ToolbarPosition, ToolbarSettings } from "@shared/types.ts";
+  import type { DockMonitors, FillGap, HideMode, StartMenuMode, ToolbarPosition, ToolbarSettings } from "@shared/types.ts";
   import SettingsGroup from "../components/SettingsGroup.svelte";
   import SettingsRow from "../components/SettingsRow.svelte";
   import ThemePicker from "../components/ThemePicker.svelte";
@@ -105,6 +105,19 @@
         onchange={(v) => set("height", v)}
       />
     </SettingsRow>
+    {#if inSlot && !toolbar.matchTaskbarHeight}
+      <SettingsRow label={t("toolbar.fillGap")} hint={t("toolbar.fillGapHint")}>
+        <Select
+          value={toolbar.fillGap}
+          options={[
+            { value: "WhenNeeded" as FillGap, label: t("toolbar.fillGapWhenNeeded") },
+            { value: "Always" as FillGap, label: t("common.always") },
+            { value: "Off" as FillGap, label: t("toolbar.fillGapOff") },
+          ]}
+          onchange={(v) => set("fillGap", v)}
+        />
+      </SettingsRow>
+    {/if}
     <SettingsRow label={t("toolbar.scale")} hint={t("toolbar.scaleHint")}>
       <Slider
         value={toolbar.scale}

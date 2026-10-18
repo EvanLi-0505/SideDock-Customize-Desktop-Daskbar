@@ -477,6 +477,14 @@ export const en = {
   "backup.goneHint": "the file was moved or deleted",
   "backup.removeRecord": "Remove entry",
   "backup.dirGone": "The backup folder no longer exists (moved or deleted); the next backup creates it again.",
+  // ---------- 3.1.0 ----------
+  "dock_menu.running_here": "Show new apps here",
+  "dock.runningAnchor": "Newly opened apps appear after this marker (drag it to move it)",
+  "item_menu.remove_running_anchor": "Remove the marker (new apps go back to the end)",
+  "toolbar.fillGap": "Fill the taskbar's space",
+  "toolbar.fillGapHint": "The hidden taskbar's space stays reserved so the desktop never moves; a lower toolbar leaves a strip of wallpaper under maximized windows. The background can fill it, the items keep their size.",
+  "toolbar.fillGapWhenNeeded": "When a window reaches the bottom",
+  "toolbar.fillGapOff": "Off",
 } as const;
 
 export type TranslationKey = keyof typeof en;

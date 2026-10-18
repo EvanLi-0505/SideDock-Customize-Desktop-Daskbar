@@ -372,6 +372,9 @@ pub struct ToolbarSettings {
     pub height: u32,
     /// in the hidden taskbar's place: exactly the taskbar's height
     pub match_taskbar_height: bool,
+    /// in the hidden taskbar's place but lower than it: whether the bar's background fills
+    /// the rest of the taskbar's space, where maximized windows leave a gap
+    pub fill_gap: FillGap,
     /// content size (percent)
     pub scale: u32,
     /// None = same theme as the dock
@@ -385,6 +388,18 @@ pub struct ToolbarSettings {
     pub custom_buttons: Vec<CustomButton>,
 }
 
+/// The hidden taskbar's space keeps being reserved (the desktop does not move), so a
+/// toolbar lower than the taskbar leaves a strip of wallpaper under maximized windows.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FillGap {
+    /// the toolbar keeps its own height
+    Off,
+    /// the background fills the strip while a window reaches down to it
+    WhenNeeded,
+    /// the background always fills the strip
+    Always,
+}
+
 impl Default for ToolbarSettings {
     fn default() -> Self {
         Self {
@@ -396,6 +411,7 @@ impl Default for ToolbarSettings {
             delay_to_hide: 600,
             height: 40,
             match_taskbar_height: true,
+            fill_gap: FillGap::WhenNeeded,
             scale: 100,
             theme: None,
             background_opacity: 92,
@@ -810,4 +826,38 @@ pub fn replace(mut new: AppSettings) -> Result<AppSettings> {
     let mut guard = SETTINGS.write();
     storage::save_json(&file_path(), &new)?;
     Ok(std::mem::replace(&mut *guard, new))
+}
+
+
+#[cfg(test)]
+mod compat_tests {
+    use super::*;
+
+    /// Settings saved by 2.0 (before extra docks, custom button kinds, magnification of
+    /// extra docks, launcher search, backups...) must load: every field added later has
+    /// a default. Never rename or remove a saved field; add new ones with defaults.
+    #[test]
+    fn settings_of_older_versions_load() {
+        let old = r#"{
+            "language": "zh-CN",
+            "theme": "glass",
+            "dock": { "enabled": true, "position": "Left", "hideMode": "OnOverlap", "size": 44 },
+            "toolbar": { "enabled": true, "customButtons": [
+                { "id": "b1", "name": "Docs", "target": "C:\\Docs", "args": "", "icon": "" }
+            ] },
+            "taskbar": { "hideNative": true },
+            "auxDocks": [ { "id": "aux1", "enabled": true, "position": "Right" } ],
+            "someFieldOfAFutureVersion": 1
+        }"#;
+        let mut s: AppSettings = serde_json::from_str(old).expect("old settings load");
+        s.sanitize();
+        assert_eq!(s.dock.size, 44);
+        assert!(s.taskbar.hide_native);
+        assert_eq!(s.toolbar.custom_buttons.len(), 1);
+        assert_eq!(s.aux_docks.len(), 3, "the missing extra docks are added");
+        assert!(s.aux_docks[0].enabled && s.aux_docks[0].magnification);
+        assert!(s.launcher.search_files);
+        assert!(s.backup_dir.is_empty());
+        assert_eq!(s.toolbar.fill_gap, FillGap::WhenNeeded);
+    }
 }

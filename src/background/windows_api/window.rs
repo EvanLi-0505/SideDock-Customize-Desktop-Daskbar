@@ -279,8 +279,26 @@ impl Window {
             unsafe {
                 let _ = ShowWindowAsync(self.hwnd(), SW_RESTORE);
             }
+            // An app running as administrator ignores that request from SideDock (UIPI:
+            // a lower integrity level cannot drive its windows). The shell's own switch,
+            // the one Alt+Tab uses, still brings it back.
+            if !self.wait_restored() {
+                log::info!("window {:#x} did not restore, switching to it the Alt+Tab way", self.0);
+                unsafe { windows::Win32::UI::WindowsAndMessaging::SwitchToThisWindow(self.hwnd(), true) };
+            }
         }
         self.bring_to_foreground(true)
+    }
+
+    /// Waits a little for a restore request to take effect.
+    fn wait_restored(self) -> bool {
+        for _ in 0..15 {
+            if !self.is_minimized() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        false
     }
 
     fn is_foreground(self) -> bool {

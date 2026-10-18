@@ -180,20 +180,29 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("sdicon", |_ctx, request, responder| {
-            let respond = |responder: tauri::UriSchemeResponder, bytes: Vec<u8>| {
-                let response = tauri::http::Response::builder()
-                    .header("Content-Type", "image/png")
-                    .header("Cache-Control", "max-age=604800")
-                    .header("Access-Control-Allow-Origin", "*")
-                    .body(bytes)
-                    .unwrap_or_default();
+            let respond = |responder: tauri::UriSchemeResponder, bytes: Option<Vec<u8>>| {
+                // an icon that could not be extracted must not be cached: the webview would
+                // show an empty icon for a week; a 404 lets the page try again
+                let response = match bytes {
+                    Some(bytes) => tauri::http::Response::builder()
+                        .header("Content-Type", "image/png")
+                        .header("Cache-Control", "max-age=604800")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(bytes),
+                    None => tauri::http::Response::builder()
+                        .status(404)
+                        .header("Cache-Control", "no-store")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(Vec::new()),
+                }
+                .unwrap_or_default();
                 responder.respond(response);
             };
             let uri = request.uri().to_string();
             // answer known icons right away, on this thread: no cross-thread round-trip
             // with the webview (a burst of those can stall a foreground webview)
             if let Some(bytes) = icons::handle_request_cached(&uri) {
-                respond(responder, bytes);
+                respond(responder, Some(bytes));
                 return;
             }
             crate::utils::run_in_pool(move || respond(responder, icons::handle_request(&uri)));

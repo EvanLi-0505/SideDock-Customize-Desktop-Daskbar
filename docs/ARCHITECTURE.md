@@ -160,3 +160,8 @@ scripts/package.mjs      portable zip packaging
 * Background threads are started with `utils::spawn_supervised` (restart on panic).
 * Commands that launch things are throttled with `utils::throttle`.
 * Persisted files are written with `state::storage::save_json` (atomic + backup).
+* Updates never break saved data: a persisted field is never renamed or removed, new
+  fields have serde defaults, and backup `formatVersion` 1 stays restorable (a new
+  format needs a migration). `state::settings::compat_tests`, `state::backup::tests` and
+  `state::dock_items::tests` load data of older versions.
+* Version numbers are `main.feature.hotfix`.

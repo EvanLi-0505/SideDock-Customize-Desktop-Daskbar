@@ -110,9 +110,13 @@ fn read(path: &Path) -> Result<BackupFile> {
     if size > MAX_SIZE {
         return Err("not a SideDock backup (file too large)".into());
     }
-    let text = std::fs::read_to_string(path)?;
+    parse(&std::fs::read_to_string(path)?)
+}
+
+/// Checks that `text` is a backup this version can restore.
+fn parse(text: &str) -> Result<BackupFile> {
     let backup: BackupFile =
-        serde_json::from_str(&text).map_err(|_| "not a SideDock backup (unreadable)")?;
+        serde_json::from_str(text).map_err(|_| "not a SideDock backup (unreadable)")?;
     if backup.format != FORMAT {
         return Err("not a SideDock backup".into());
     }
@@ -269,4 +273,40 @@ pub fn delete(path: &Path) -> Result<()> {
     std::fs::remove_file(path)?;
     log::info!("backup {} deleted", path.display());
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A backup written by 3.0.0. Every later version must keep restoring it: never
+    /// change what `format` / `formatVersion` 1 means, add a migration instead.
+    const BACKUP_3_0_0: &str = r#"{
+        "format": "sidedock-backup",
+        "formatVersion": 1,
+        "appVersion": "3.0.0",
+        "created": "2026-10-18 01:02:06",
+        "files": {
+            "settings.json": { "dock": { "enabled": true, "position": "Left" } },
+            "dock_items.json": { "isReorderDisabled": false, "left": [], "center": [], "right": [] }
+        }
+    }"#;
+
+    #[test]
+    fn backups_of_3_0_0_are_restorable() {
+        let backup = parse(BACKUP_3_0_0).expect("3.0.0 backups stay readable");
+        assert_eq!(backup.app_version, "3.0.0");
+        let settings: crate::state::settings::AppSettings =
+            serde_json::from_value(backup.files["settings.json"].clone()).expect("settings parse");
+        assert!(settings.dock.enabled);
+    }
+
+    #[test]
+    fn foreign_or_newer_files_are_refused() {
+        assert!(parse("{}").is_err());
+        assert!(parse(r#"{"format":"other","formatVersion":1,"appVersion":"1","created":"","files":{"settings.json":{}}}"#).is_err());
+        let newer = BACKUP_3_0_0.replace("\"formatVersion\": 1", "\"formatVersion\": 99");
+        assert!(parse(&newer).is_err());
+    }
 }

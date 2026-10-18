@@ -266,6 +266,8 @@ fn handle_event(ev: event_hook::WinEvent) -> bool {
             false
         }
         EVENT_SYSTEM_MINIMIZESTART | EVENT_SYSTEM_MINIMIZEEND => {
+            // the animation may leave its last frame in the frosted glass behind a dock
+            crate::widgets::dock::backdrop::refresh_soon();
             if let Some(w) = WINDOWS.write().iter_mut().find(|w| w.hwnd == ev.hwnd) {
                 w.is_iconic = ev.event == EVENT_SYSTEM_MINIMIZESTART;
                 w.restored_rect = w.is_iconic.then(|| window.restored_rect()).flatten();

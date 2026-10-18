@@ -84,6 +84,40 @@ const REORDER_EVERY: u32 = 60;
 const WM_BACKDROP_SHAPE: u32 = WM_APP + 1;
 /// wparam = ARGB tint
 const WM_BACKDROP_TINT: u32 = WM_APP + 2;
+/// samples what is behind the window again (new host backdrop brush)
+const WM_BACKDROP_REFRESH: u32 = WM_APP + 3;
+
+/// When the backdrops sample again: after a window's minimize / restore animation. DWM
+/// sometimes keeps the last frame of the animated window in the host backdrop (a white
+/// page stayed visible through the dock), until something redraws.
+static REFRESH_AT: parking_lot::Mutex<Vec<std::time::Instant>> = parking_lot::Mutex::new(Vec::new());
+
+/// A window was minimized or restored: refresh the backdrops once its animation ended.
+pub fn refresh_soon() {
+    let now = std::time::Instant::now();
+    let mut at = REFRESH_AT.lock();
+    at.retain(|t| *t > now);
+    for delay in [300, 800] {
+        at.push(now + std::time::Duration::from_millis(delay));
+    }
+}
+
+fn refresh_due() -> bool {
+    let now = std::time::Instant::now();
+    let mut at = REFRESH_AT.lock();
+    let before = at.len();
+    at.retain(|t| *t > now);
+    at.len() != before
+}
+
+fn scene_refresh() -> windows::core::Result<()> {
+    SCENE.with_borrow(|scene| {
+        let Some(s) = scene else {
+            return Ok(());
+        };
+        s.root.SetBrush(&s.compositor.CreateHostBackdropBrush()?)
+    })
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
@@ -296,6 +330,12 @@ unsafe extern "system" fn wnd_proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) ->
             }
             LRESULT(0)
         }
+        WM_BACKDROP_REFRESH => {
+            if let Err(err) = scene_refresh() {
+                log::debug!("backdrop refresh: {err}");
+            }
+            LRESULT(0)
+        }
         WM_DESTROY => {
             SCENE.with_borrow_mut(|s| *s = None);
             unsafe { PostQuitMessage(0) };
@@ -449,6 +489,16 @@ pub fn sync(targets: &[BackdropTarget], enabled: bool, dark: bool) {
     });
     if !enabled {
         return;
+    }
+    if refresh_due() {
+        for b in backdrops.values() {
+            match b.mode {
+                Mode::Composition => post(b.hwnd, WM_BACKDROP_REFRESH, 0, 0),
+                Mode::Accent => {
+                    set_acrylic(b.hwnd, b.tint);
+                }
+            }
+        }
     }
     for target in targets {
         if !backdrops.contains_key(&target.label) {
